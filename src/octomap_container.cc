@@ -32,11 +32,9 @@ OctomapContainer::KNNResult OctomapContainer::findKNN(const Eigen::Vector3d& poi
   return result;
 }
 
-bool OctomapContainer::isObserved(const Eigen::Vector3d &point) {
-  octomap::point3d octo_point(point.x(), point.y(), point.z());
-  octomap::OcTreeKey key = octree_->coordToKey(octo_point);
-  octomap::OcTreeNode* node = octree_->search(key);
-  return node;
+bool OctomapContainer::isObserved(const Eigen::Vector3d &point, octomap::OcTreeNode** node) {
+  *node = octree_->search(point.x(), point.y(), point.z());
+  return *node;
 }
 
 void OctomapContainer::processTree() {

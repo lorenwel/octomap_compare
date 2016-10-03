@@ -53,12 +53,15 @@ int main(int argc, char** argv) {
 
   ros::NodeHandle nh("~");
 
+  ros::WallTime start = ros::WallTime::now();
+
   // Get parameters.
   OctomapCompare::CompareParams params;
   nh.param("max_vis_dist", params.max_vis_dist, params.max_vis_dist);
   nh.param("distance_threshold", params.distance_threshold, params.distance_threshold);
   nh.param("eps", params.eps, params.eps);
   nh.param("min_pts", params.min_pts, params.min_pts);
+  nh.param("k_nearest_neighbor", params.k_nearest_neighbor, params.k_nearest_neighbor);
   std::string base_file, comp_file;
   if (!nh.getParam("base_file", base_file)) {
     ROS_ERROR("Did not find base file parameter");
@@ -90,6 +93,10 @@ int main(int argc, char** argv) {
   changes_pub.publish(changes_point_cloud);
   std::cout << "Published changes point cloud\n";
   std::cout << "Published color point cloud\n";
+
+  ros::WallDuration dif = ros::WallTime::now() - start;
+  std::cout << "This all took " << dif.toSec() << " seconds\n";
+
   // Keep topic advertised.
   while (ros::ok()) {
     ros::Duration(1.0).sleep();

@@ -52,8 +52,8 @@ public:
   /// \brief Find n nearest neighbors of point.
   KNNResult findKNN(const Eigen::Vector3d& point, const unsigned int& n_neighbors);
 
-  /// \brief Checks if voxel at point was observed.
-  bool isObserved(const Eigen::Vector3d& point);
+  /// \brief Checks if voxel at point was observed. Also passes back pointer to node at point.
+  bool isObserved(const Eigen::Vector3d& point, octomap::OcTreeNode** node);
 
   /// \brief Operator overload to allow access to underlying octree.
   std::shared_ptr<octomap::OcTree> operator->() {

@@ -2,6 +2,7 @@
 #define LASER_SLAM_OCTOMAP_COMPARE_H_
 
 #include <memory>
+#include <unordered_map>
 
 #include <glog/logging.h>
 #include <nabo/nabo.h>
@@ -14,10 +15,14 @@
 class OctomapCompare {
 
 public:
+  typedef std::unordered_map<octomap::OcTreeKey, double, octomap::OcTreeKey::KeyHash> KeyToDistMap;
+
   struct CompareResult {
-    Eigen::Matrix<double, 3, Eigen::Dynamic> observed_points;
+    Eigen::Matrix<double, 3, Eigen::Dynamic> base_observed_points;
+    Eigen::Matrix<double, 3, Eigen::Dynamic> comp_observed_points;
+    Eigen::MatrixXd base_distances;
+    Eigen::MatrixXd comp_distances;
     Eigen::Matrix<double, 3, Eigen::Dynamic> unobserved_points;
-    Eigen::MatrixXd distances;
     double max_dist;
   };
 
@@ -26,12 +31,14 @@ public:
       max_vis_dist(8),
       distance_threshold(0.1),
       eps(0.3),
-      min_pts(10) {}
+      min_pts(10),
+      k_nearest_neighbor(1) {}
 
     double max_vis_dist;
     double distance_threshold;
     double eps;
     double min_pts;
+    int k_nearest_neighbor;
   };
 
 private:
@@ -47,6 +54,19 @@ private:
 
   /// \brief Gets point color based on distance for use in visualization.
   pcl::RGB getColorFromDistance(const double& dist, const double& max_dist = 1);
+
+  /// \brief Get changes with distances from comp voxel to closest base voxel.
+  double compareForward(std::list<Eigen::Vector3d>* observed_points,
+                        std::list<Eigen::VectorXd>* distances,
+                        std::list<Eigen::Vector3d>* unobserved_points,
+                        std::list<octomap::OcTreeKey>* keys);
+
+  /// \brief Get changes with distances from base voxel to closest comp voxel.
+  double compareBackward(const KeyToDistMap& key_to_dist,
+                         double max_dist,
+                         std::list<Eigen::Vector3d>* observed_points,
+                         std::list<Eigen::VectorXd>* distances,
+                         std::list<Eigen::Vector3d>* unobserved_points);
 
 public:
   OctomapCompare(const std::string& base_file, const std::string& comp_file,
