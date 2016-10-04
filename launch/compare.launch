@@ -2,10 +2,15 @@
 
 <launch>
 
+  <!-- Rviz visualization config file path -->
+  <arg name="rviz_config_file" value="$(find octomap_compare)/launch/rviz_config.rviz"/>
+
+  <!-- rviz node -->
+  <node name="visualizer" pkg="rviz" type="rviz" output="screen" args="-d $(arg rviz_config_file)" />
+
+  <!-- Octomap compare node -->
   <node name="octomap_compare" pkg="octomap_compare" type="octomap_compare_node" output="screen">
-
     <rosparam command="load" file="$(find octomap_compare)/launch/compare_params.yaml"/>
-
   </node>
 
 </launch>

@@ -32,13 +32,22 @@ public:
       distance_threshold(0.1),
       eps(0.3),
       min_pts(10),
-      k_nearest_neighbor(1) {}
+      k_nearest_neighbor(1),
+      show_unobserved_voxels(true){}
 
+    // Distance value used as maximum for voxel coloring in visualization.
     double max_vis_dist;
+    // Distances threshold for change detection.
     double distance_threshold;
+    // DBSCAN: Radius around point to be considered a neighbor.
     double eps;
+    // DBSCAN: Minimum number of points in neighborhood to be considered a base point.
     double min_pts;
+    // Number of neighbors to query for. Currently only closest neighbor is used.
+    // Setting this to 1 enbables some optimizations.
     int k_nearest_neighbor;
+    // Show unobserved voxels in visualization of distance between octomaps.
+    bool show_unobserved_voxels;
   };
 
 private:

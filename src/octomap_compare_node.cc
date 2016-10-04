@@ -62,6 +62,7 @@ int main(int argc, char** argv) {
   nh.param("eps", params.eps, params.eps);
   nh.param("min_pts", params.min_pts, params.min_pts);
   nh.param("k_nearest_neighbor", params.k_nearest_neighbor, params.k_nearest_neighbor);
+  nh.param("show_unobserved_voxels", params.show_unobserved_voxels, params.show_unobserved_voxels);
   std::string base_file, comp_file;
   if (!nh.getParam("base_file", base_file)) {
     ROS_ERROR("Did not find base file parameter");

@@ -217,14 +217,16 @@ void OctomapCompare::compareResultToPointCloud(const CompareResult& result,
     pointrgb.z = result.comp_observed_points(2,i);
     distance_point_cloud->push_back(pointrgb);
   }
-  for (unsigned int i = 0; i < result.unobserved_points.cols(); ++i) {
-    // Write point to cloud.
-    pcl::RGB color = getColorFromDistance(-1.0);
-    pcl::PointXYZRGB pointrgb(color.r, color.g, color.b);
-    pointrgb.x = result.unobserved_points(0,i);
-    pointrgb.y = result.unobserved_points(1,i);
-    pointrgb.z = result.unobserved_points(2,i);
-    distance_point_cloud->push_back(pointrgb);
+  if (params_.show_unobserved_voxels) {
+    for (unsigned int i = 0; i < result.unobserved_points.cols(); ++i) {
+      // Write point to cloud.
+      pcl::RGB color = getColorFromDistance(-1.0);
+      pcl::PointXYZRGB pointrgb(color.r, color.g, color.b);
+      pointrgb.x = result.unobserved_points(0,i);
+      pointrgb.y = result.unobserved_points(1,i);
+      pointrgb.z = result.unobserved_points(2,i);
+      distance_point_cloud->push_back(pointrgb);
+    }
   }
 }
 
