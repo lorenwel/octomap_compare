@@ -188,8 +188,11 @@ void OctomapCompare::getChanges(const CompareResult& result,
     output->col(counter++) = result.base_observed_points.col(index);
   }
   std::cout << output->cols() << " voxels left after distance thresholding\n";
+  // Copy of transpose is necessary because dbscan works with a reference and has issues when
+  // directly passing output->transpose().
+  Eigen::MatrixXd transpose(output->transpose());
   // DBSCAN filtering.
-  Dbscan dbscan(output->transpose(), params_.eps, params_.min_pts);
+  Dbscan dbscan(transpose, params_.eps, params_.min_pts);
   dbscan.cluster(cluster);
 
 }
