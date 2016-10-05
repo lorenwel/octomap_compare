@@ -75,9 +75,8 @@ void OctomapContainer::processTree() {
         Eigen::Vector3d bbx_min = center - bbx_offset_vec;
         Eigen::Vector3d bbx_max = center + bbx_offset_vec;
         // Add small offset to avoid overshooting bbx_max.
-        bbx_max += Eigen::Vector3d(0.001, 0.001, 0.001);
+        bbx_max += Eigen::Vector3d::Constant(0.001);
         // Save index before these loops to check proper execution when debugging.
-        const unsigned int index_before = index;
         for (double x_position = bbx_min.x(); x_position <= bbx_max.x();
              x_position += resolution) {
           for (double y_position = bbx_min.y(); y_position <= bbx_max.y();
@@ -89,9 +88,6 @@ void OctomapContainer::processTree() {
             }
           }
         }
-        if (index != index_before + pow(2, 3*(max_tree_depth - it.getDepth()))) {
-          std::cerr << "Stepping through sub voxels went wrong\n";
-        }
       }
     }
   }
@@ -101,5 +97,6 @@ void OctomapContainer::processTree() {
   // Create kd tree.
   kd_tree_ = std::unique_ptr<Nabo::NNSearchD>(
       Nabo::NNSearchD::createKDTreeTreeHeap(occupied_points));
+  std::cout << "Created kd-tree\n";
 
 }

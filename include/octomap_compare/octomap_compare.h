@@ -78,16 +78,19 @@ private:
                          std::list<Eigen::Vector3d>* unobserved_points);
 
 public:
+  /// \brief Constructor which reads octomaps from specified files.
   OctomapCompare(const std::string& base_file, const std::string& comp_file,
                  const CompareParams& params);
 
   /// \brief Compare both loaded point clouds and return colored point cloud.
   CompareResult compare();
 
+  /// \brief Get changes between octomaps using the result from a comparison.
   void getChanges(const CompareResult& result,
                   Eigen::Matrix<double, 3, Eigen::Dynamic>* output,
                   Eigen::VectorXi* cluster);
 
+  /// \brief Get a point cloud visualizing the comparison result.
   void compareResultToPointCloud(const CompareResult& result,
                                  pcl::PointCloud<pcl::PointXYZRGB>* distance_point_cloud);
 };

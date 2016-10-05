@@ -203,7 +203,6 @@ void OctomapCompare::compareResultToPointCloud(const CompareResult& result,
   distance_point_cloud->header.frame_id = "map";
   const double max_dist = sqrt(result.max_dist);
   for (unsigned int i = 0; i < result.base_observed_points.cols(); ++i) {
-    // Write point to cloud.
     pcl::RGB color = getColorFromDistance(sqrt(result.base_distances(0,i)), max_dist);
     pcl::PointXYZRGB pointrgb(color.r, color.g, color.b);
     pointrgb.x = result.base_observed_points(0,i);
@@ -212,7 +211,6 @@ void OctomapCompare::compareResultToPointCloud(const CompareResult& result,
     distance_point_cloud->push_back(pointrgb);
   }
   for (unsigned int i = 0; i < result.comp_observed_points.cols(); ++i) {
-    // Write point to cloud.
     pcl::RGB color = getColorFromDistance(sqrt(result.comp_distances(0,i)), max_dist);
     pcl::PointXYZRGB pointrgb(color.r, color.g, color.b);
     pointrgb.x = result.comp_observed_points(0,i);
@@ -222,7 +220,6 @@ void OctomapCompare::compareResultToPointCloud(const CompareResult& result,
   }
   if (params_.show_unobserved_voxels) {
     for (unsigned int i = 0; i < result.unobserved_points.cols(); ++i) {
-      // Write point to cloud.
       pcl::RGB color = getColorFromDistance(-1.0);
       pcl::PointXYZRGB pointrgb(color.r, color.g, color.b);
       pointrgb.x = result.unobserved_points(0,i);
