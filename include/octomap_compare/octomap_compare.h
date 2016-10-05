@@ -53,10 +53,10 @@ public:
 private:
 
   // Octomap considered to be the base map for comparison.
-  OctomapContainer base_octree_;
+  std::shared_ptr<OctomapContainer> base_octree_;
 
   // Octomap which will be compared to the base octomap.
-  OctomapContainer comp_octree_;
+  std::shared_ptr<OctomapContainer> comp_octree_;
 
   // Parameters.
   CompareParams params_;
@@ -80,7 +80,11 @@ private:
 public:
   /// \brief Constructor which reads octomaps from specified files.
   OctomapCompare(const std::string& base_file, const std::string& comp_file,
-                 const CompareParams& params);
+                 const CompareParams& params = CompareParams());
+
+  OctomapCompare(const std::shared_ptr<octomap::OcTree>& base_tree,
+                 const std::shared_ptr<octomap::OcTree>& comp_tree,
+                 const CompareParams& params = CompareParams());
 
   /// \brief Compare both loaded point clouds and return colored point cloud.
   CompareResult compare();
