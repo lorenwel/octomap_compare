@@ -17,6 +17,7 @@
   <depend>glog_catkin</depend>
   <depend>laser_slam</depend>
   <depend>libnabo</depend>
+  <depend>libpointmatcher</depend>
   <depend>message_generation</depend>
   <depend>message_runtime</depend>
   <depend>octomap</depend>

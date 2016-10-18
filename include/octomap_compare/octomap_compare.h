@@ -1,5 +1,5 @@
-#ifndef LASER_SLAM_OCTOMAP_COMPARE_H_
-#define LASER_SLAM_OCTOMAP_COMPARE_H_
+#ifndef OCTOMAP_COMPARE_H_
+#define OCTOMAP_COMPARE_H_
 
 #include <memory>
 #include <unordered_map>
@@ -58,6 +58,10 @@ private:
   // Octomap which will be compared to the base octomap.
   std::shared_ptr<OctomapContainer> comp_octree_;
 
+  // Transformation from comp_octree_ frame to base_octree_ frame.
+  Eigen::Affine3d T_base_comp_;
+  Eigen::Affine3d T_comp_base_;
+
   // Parameters.
   CompareParams params_;
 
@@ -76,6 +80,9 @@ private:
                          std::list<Eigen::Vector3d>* observed_points,
                          std::list<Eigen::VectorXd>* distances,
                          std::list<Eigen::Vector3d>* unobserved_points);
+
+  /// \brief Get transform to align octomaps.
+  void getTransformFromICP();
 
 public:
   /// \brief Constructor which reads octomaps from specified files.
@@ -99,4 +106,4 @@ public:
                                  pcl::PointCloud<pcl::PointXYZRGB>* distance_point_cloud);
 };
 
-#endif // LASER_SLAM_OCTOMAP_COMPARE_H_
+#endif // OCTOMAP_COMPARE_H_

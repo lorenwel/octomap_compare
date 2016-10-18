@@ -1,5 +1,5 @@
-#ifndef LASER_SLAM_OCTOMAP_CONTAINER_H_
-#define LASER_SLAM_OCTOMAP_CONTAINER_H_
+#ifndef OCTOMAP_CONTAINER_H_
+#define OCTOMAP_CONTAINER_H_
 
 #include <memory>
 
@@ -30,7 +30,7 @@ private:
 
   // Eigen Matrix with occupied voxels of octree_.
 //  Eigen::Matrix<double, 3, Eigen::Dynamic> occupied_points; // libnabo doesn't like this.
-  Eigen::MatrixXd occupied_points;
+  Eigen::MatrixXd occupied_points_;
 
   // Maps index index of point in occupied_points
   // to key of corresponding voxel in octree_.
@@ -50,10 +50,10 @@ public:
   OctomapContainer(const std::shared_ptr<octomap::OcTree>& octree);
 
   /// \brief Find n nearest neighbors of point.
-  KNNResult findKNN(const Eigen::Vector3d& point, const unsigned int& n_neighbors);
+  KNNResult findKNN(const Eigen::Vector3d& point, const unsigned int& n_neighbors) const;
 
   /// \brief Checks if voxel at point was observed. Also passes back pointer to node at point.
-  bool isObserved(const Eigen::Vector3d& point, octomap::OcTreeNode** node);
+  bool isObserved(const Eigen::Vector3d& point, octomap::OcTreeNode** node) const;
 
   /// \brief Operator overload to allow access to underlying octree.
   std::shared_ptr<octomap::OcTree> operator->() {
@@ -65,6 +65,10 @@ public:
     return (bool)octree_;
   }
 
+  const Eigen::MatrixXd& Points() const {
+    return occupied_points_;
+  }
+
 };
 
-#endif // LASER_SLAM_OCTOMAP_CONTAINER_H_
+#endif // OCTOMAP_CONTAINER_H_

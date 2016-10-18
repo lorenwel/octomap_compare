@@ -7,10 +7,7 @@
 #include <dbscan/dbscan.h>
 #include <pcl/conversions.h>
 
-template <typename T>
-void loadOctomap(const T& arg, std::shared_ptr<OctomapContainer>* container) {
-  *container = std::make_shared<OctomapContainer>(arg);
-}
+#include "octomap_compare/octomap_compare_utils.h"
 
 OctomapCompare::OctomapCompare(const std::string& base_file, const std::string& comp_file,
                                const CompareParams& params) :
@@ -23,7 +20,8 @@ OctomapCompare::OctomapCompare(const std::string& base_file, const std::string& 
 
 OctomapCompare::OctomapCompare(const std::shared_ptr<octomap::OcTree>& base_tree,
                                const std::shared_ptr<octomap::OcTree>& comp_tree,
-                               const CompareParams &params) : params_(params) {
+                               const CompareParams &params) :
+    params_(params) {
   std::thread base_thread(loadOctomap<std::shared_ptr<octomap::OcTree>>, base_tree, &base_octree_);
   std::thread comp_thread(loadOctomap<std::shared_ptr<octomap::OcTree>>, comp_tree, &comp_octree_);
   base_thread.join();
@@ -37,6 +35,10 @@ OctomapCompare::CompareResult OctomapCompare::compare() {
     return result;
   }
   std::cout << "Comparing...\n";
+
+  // Do ICP.
+  getTransformFromICP();
+
   std::list<Eigen::Vector3d> comp_observed_points;
   std::list<Eigen::VectorXd> comp_distances;
   std::list<Eigen::Vector3d> unobserved_points;
@@ -110,6 +112,7 @@ double OctomapCompare::compareForward(std::list<Eigen::Vector3d>* observed_point
   for (auto it = (*comp_octree_)->begin_leafs(); it != (*comp_octree_)->end_leafs(); ++it) {
     if ((*comp_octree_)->isNodeOccupied(*it)) {
       Eigen::Vector3d query_point(it.getX(), it.getY(), it.getZ());
+      query_point = T_base_comp_ * query_point;
       octomap::OcTreeNode* base_node;  // Keep node to check occupancy.
       if (base_octree_->isObserved(query_point, &base_node)) {
         observed_points->push_back(query_point);
@@ -120,8 +123,8 @@ double OctomapCompare::compareForward(std::list<Eigen::Vector3d>* observed_point
           distances->push_back(Eigen::Matrix<double, 1, 1>::Zero());
           // TODO: find a better way to get key from node poniter.
           keys->push_back((*base_octree_)->coordToKey(octomap::point3d(query_point.x(),
-                                                                   query_point.y(),
-                                                                   query_point.z())));
+                                                                       query_point.y(),
+                                                                       query_point.z())));
         }
         else {
           OctomapContainer::KNNResult knn_result =
@@ -150,9 +153,10 @@ double OctomapCompare::compareBackward(const KeyToDistMap& key_to_dist,
   // Compare base octree to comp octree.
   for (auto it = (*base_octree_)->begin_leafs(); it != (*base_octree_)->end_leafs(); ++it) {
     Eigen::Vector3d query_point(it.getX(), it.getY(), it.getZ());
+    Eigen::Vector3d query_point_comp = T_comp_base_ * query_point;
     if ((*base_octree_)->isNodeOccupied(*it)) {
       octomap::OcTreeNode* comp_node;
-      if (comp_octree_->isObserved(query_point, &comp_node)) {
+      if (comp_octree_->isObserved(query_point_comp, &comp_node)) {
         observed_points->push_back(query_point);
         // Check if comp node is also occupied.
         if (params_.k_nearest_neighbor == 1 &&
@@ -169,7 +173,7 @@ double OctomapCompare::compareBackward(const KeyToDistMap& key_to_dist,
           }
           else {
             OctomapContainer::KNNResult knn_result =
-                comp_octree_->findKNN(query_point, params_.k_nearest_neighbor);
+                comp_octree_->findKNN(query_point_comp, params_.k_nearest_neighbor);
             distances->push_back(knn_result.distances);
             if (knn_result.distances(0) > max_dist) max_dist = knn_result.distances(0);
           }
@@ -181,6 +185,18 @@ double OctomapCompare::compareBackward(const KeyToDistMap& key_to_dist,
     }
   }
   return max_dist;
+}
+
+void OctomapCompare::getTransformFromICP() {
+  PM::ICP icp;
+  icp.setDefault();
+  PM::DataPoints base_points = matrix3dEigenToPointMatcher(base_octree_->Points());
+  PM::DataPoints comp_points = matrix3dEigenToPointMatcher(comp_octree_->Points());
+
+  PM::TransformationParameters T = icp(comp_points, base_points);
+  std::cout << "Done ICPeeing, transform is\n"<< T << "\n";
+  T_base_comp_.matrix() = T;
+  T_comp_base_ = T_base_comp_.inverse();
 }
 
 void OctomapCompare::getChanges(const CompareResult& result,

@@ -15,7 +15,7 @@ OctomapContainer::OctomapContainer(const std::shared_ptr<octomap::OcTree>& octre
 }
 
 OctomapContainer::KNNResult OctomapContainer::findKNN(const Eigen::Vector3d& point,
-                                                       const unsigned int& n_neighbors) {
+                                                       const unsigned int& n_neighbors) const {
   // Query.
   Eigen::VectorXi indices(n_neighbors);
   Eigen::VectorXd distances(n_neighbors);
@@ -27,12 +27,12 @@ OctomapContainer::KNNResult OctomapContainer::findKNN(const Eigen::Vector3d& poi
   for (unsigned int i = 0; i < n_neighbors; ++i) {
     const unsigned int cur_index = indices[i];
     result.keys[i] = key_map_[cur_index];
-    result.points.col(i) = occupied_points.col(cur_index);
+    result.points.col(i) = occupied_points_.col(cur_index);
   }
   return result;
 }
 
-bool OctomapContainer::isObserved(const Eigen::Vector3d &point, octomap::OcTreeNode** node) {
+bool OctomapContainer::isObserved(const Eigen::Vector3d &point, octomap::OcTreeNode** node) const {
   *node = octree_->search(point.x(), point.y(), point.z());
   return *node;
 }
@@ -52,7 +52,7 @@ void OctomapContainer::processTree() {
   }
 
   std::cout << "Found " << voxel_count << " occupied voxels\n";
-  occupied_points.resize(3, voxel_count);
+  occupied_points_.resize(3, voxel_count);
   key_map_.resize(voxel_count);
 
   // Fill matrix.
@@ -61,7 +61,7 @@ void OctomapContainer::processTree() {
        it != octree_->end_leafs(); ++it) {
     if (octree_->isNodeOccupied(*it)) {
       if (max_tree_depth == it.getDepth()) {
-        occupied_points.col(index) = Eigen::Vector3d(it.getX(), it.getY(), it.getZ());
+        occupied_points_.col(index) = Eigen::Vector3d(it.getX(), it.getY(), it.getZ());
         key_map_[index++] = it.getKey();
       }
       // If leaf is not max depth it represents an occupied voxel with edge
@@ -83,7 +83,7 @@ void OctomapContainer::processTree() {
                y_position += resolution) {
             for (double z_position = bbx_min.z(); z_position <= bbx_max.z();
                  z_position += resolution) {
-              occupied_points.col(index) = Eigen::Vector3d(x_position, y_position, z_position);
+              occupied_points_.col(index) = Eigen::Vector3d(x_position, y_position, z_position);
               key_map_[index++] = it.getKey();
             }
           }
@@ -96,7 +96,7 @@ void OctomapContainer::processTree() {
 
   // Create kd tree.
   kd_tree_ = std::unique_ptr<Nabo::NNSearchD>(
-      Nabo::NNSearchD::createKDTreeTreeHeap(occupied_points));
+      Nabo::NNSearchD::createKDTreeTreeHeap(occupied_points_));
   std::cout << "Created kd-tree\n";
 
 }
