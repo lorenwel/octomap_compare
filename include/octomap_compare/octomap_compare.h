@@ -10,6 +10,7 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 
+#include "octomap_compare/octomap_compare_utils.h"
 #include "octomap_compare/octomap_container.h"
 
 class OctomapCompare {
@@ -33,7 +34,7 @@ public:
       eps(0.3),
       min_pts(10),
       k_nearest_neighbor(1),
-      show_unobserved_voxels(true){}
+      show_unobserved_voxels(true) {}
 
     // Distance value used as maximum for voxel coloring in visualization.
     double max_vis_dist;

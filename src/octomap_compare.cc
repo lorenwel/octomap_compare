@@ -7,8 +7,6 @@
 #include <dbscan/dbscan.h>
 #include <pcl/conversions.h>
 
-#include "octomap_compare/octomap_compare_utils.h"
-
 OctomapCompare::OctomapCompare(const std::string& base_file, const std::string& comp_file,
                                const CompareParams& params) :
     params_(params) {
@@ -109,7 +107,6 @@ double OctomapCompare::compareForward(std::list<Eigen::Vector3d>* observed_point
   CHECK_NOTNULL(keys);
   double max_dist = 0;
   // Do the comparison.
-//  for (auto it = (*comp_octree_)->begin_leafs(); it != (*comp_octree_)->end_leafs(); ++it) {
   const unsigned int n_points = comp_octree_->Points().cols();
   for (unsigned int i = 0; i < n_points; ++i) {
     Eigen::Vector3d query_point(comp_octree_->Points().col(i));
