@@ -153,8 +153,8 @@ double OctomapCompare::compareBackward(const KeyToDistMap& key_to_dist,
   // Compare base octree to comp octree.
   for (auto it = (*base_octree_)->begin_leafs(); it != (*base_octree_)->end_leafs(); ++it) {
     Eigen::Vector3d query_point(it.getX(), it.getY(), it.getZ());
-    Eigen::Vector3d query_point_comp = T_comp_base_ * query_point;
     if ((*base_octree_)->isNodeOccupied(*it)) {
+      Eigen::Vector3d query_point_comp = T_comp_base_ * query_point;
       octomap::OcTreeNode* comp_node;
       if (comp_octree_->isObserved(query_point_comp, &comp_node)) {
         observed_points->push_back(query_point);
