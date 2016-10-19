@@ -109,34 +109,34 @@ double OctomapCompare::compareForward(std::list<Eigen::Vector3d>* observed_point
   CHECK_NOTNULL(keys);
   double max_dist = 0;
   // Do the comparison.
-  for (auto it = (*comp_octree_)->begin_leafs(); it != (*comp_octree_)->end_leafs(); ++it) {
-    if ((*comp_octree_)->isNodeOccupied(*it)) {
-      Eigen::Vector3d query_point(it.getX(), it.getY(), it.getZ());
-      query_point = T_base_comp_ * query_point;
-      octomap::OcTreeNode* base_node;  // Keep node to check occupancy.
-      if (base_octree_->isObserved(query_point, &base_node)) {
-        observed_points->push_back(query_point);
-        // If base tree node is occupied distance is very low -> set 0.
-        if (params_.k_nearest_neighbor == 1 &&
-            base_node &&
-            (*base_octree_)->isNodeOccupied(base_node)) {
-          distances->push_back(Eigen::Matrix<double, 1, 1>::Zero());
-          // TODO: find a better way to get key from node poniter.
-          keys->push_back((*base_octree_)->coordToKey(octomap::point3d(query_point.x(),
-                                                                       query_point.y(),
-                                                                       query_point.z())));
-        }
-        else {
-          OctomapContainer::KNNResult knn_result =
-              base_octree_->findKNN(query_point, params_.k_nearest_neighbor);
-          distances->push_back(knn_result.distances);
-          keys->push_back(knn_result.keys.front());
-          if (knn_result.distances(0) > max_dist) max_dist = knn_result.distances(0);
-        }
+//  for (auto it = (*comp_octree_)->begin_leafs(); it != (*comp_octree_)->end_leafs(); ++it) {
+  const unsigned int n_points = comp_octree_->Points().cols();
+  for (unsigned int i = 0; i < n_points; ++i) {
+    Eigen::Vector3d query_point(comp_octree_->Points().col(i));
+    query_point = T_base_comp_ * query_point;
+    octomap::OcTreeNode* base_node;  // Keep node to check occupancy.
+    if (base_octree_->isObserved(query_point, &base_node)) {
+      observed_points->push_back(query_point);
+      // If base tree node is occupied distance is very low -> set 0.
+      if (params_.k_nearest_neighbor == 1 &&
+          base_node &&
+          (*base_octree_)->isNodeOccupied(base_node)) {
+        distances->push_back(Eigen::Matrix<double, 1, 1>::Zero());
+        // TODO: find a better way to get key from node pointer.
+        keys->push_back((*base_octree_)->coordToKey(octomap::point3d(query_point.x(),
+                                                                     query_point.y(),
+                                                                     query_point.z())));
       }
       else {
-        unobserved_points->push_back(query_point);
+        OctomapContainer::KNNResult knn_result =
+            base_octree_->findKNN(query_point, params_.k_nearest_neighbor);
+        distances->push_back(knn_result.distances);
+        keys->push_back(knn_result.keys.front());
+        if (knn_result.distances(0) > max_dist) max_dist = knn_result.distances(0);
       }
+    }
+    else {
+      unobserved_points->push_back(query_point);
     }
   }
   return max_dist;
@@ -151,37 +151,38 @@ double OctomapCompare::compareBackward(const KeyToDistMap& key_to_dist,
   CHECK_NOTNULL(distances);
   CHECK_NOTNULL(unobserved_points);
   // Compare base octree to comp octree.
-  for (auto it = (*base_octree_)->begin_leafs(); it != (*base_octree_)->end_leafs(); ++it) {
-    Eigen::Vector3d query_point(it.getX(), it.getY(), it.getZ());
-    if ((*base_octree_)->isNodeOccupied(*it)) {
-      Eigen::Vector3d query_point_comp = T_comp_base_ * query_point;
-      octomap::OcTreeNode* comp_node;
-      if (comp_octree_->isObserved(query_point_comp, &comp_node)) {
-        observed_points->push_back(query_point);
-        // Check if comp node is also occupied.
-        if (params_.k_nearest_neighbor == 1 &&
-            comp_node &&
-            (*comp_octree_)->isNodeOccupied(comp_node)) {
-          distances->push_back(Eigen::Matrix<double, 1, 1>::Zero());
-        }
-        else {
-          // Check if we already know the distance.
-          octomap::OcTreeKey base_key = it.getKey();
-          auto key_iter = key_to_dist.find(base_key);
-          if (key_iter != key_to_dist.end()) {
-            distances->push_back(Eigen::Matrix<double, 1, 1>::Constant(key_iter->second));
-          }
-          else {
-            OctomapContainer::KNNResult knn_result =
-                comp_octree_->findKNN(query_point_comp, params_.k_nearest_neighbor);
-            distances->push_back(knn_result.distances);
-            if (knn_result.distances(0) > max_dist) max_dist = knn_result.distances(0);
-          }
-        }
+  const unsigned int n_points = base_octree_->Points().cols();
+  for (unsigned int i = 0; i < n_points; ++i) {
+    Eigen::Vector3d query_point(base_octree_->Points().col(i));
+    Eigen::Vector3d query_point_comp = T_comp_base_ * query_point;
+    octomap::OcTreeNode* comp_node;
+    if (comp_octree_->isObserved(query_point_comp, &comp_node)) {
+      observed_points->push_back(query_point);
+      // Check if comp node is also occupied.
+      if (params_.k_nearest_neighbor == 1 &&
+          comp_node &&
+          (*comp_octree_)->isNodeOccupied(comp_node)) {
+        distances->push_back(Eigen::Matrix<double, 1, 1>::Zero());
       }
       else {
-        unobserved_points->push_back(query_point);
+        // Check if we already know the distance.
+        octomap::OcTreeKey base_key = (*base_octree_)->coordToKey(octomap::point3d(query_point.x(),
+                                                                                   query_point.y(),
+                                                                                   query_point.z()));
+        auto key_iter = key_to_dist.find(base_key);
+        if (key_iter != key_to_dist.end()) {
+          distances->push_back(Eigen::Matrix<double, 1, 1>::Constant(key_iter->second));
+        }
+        else {
+          OctomapContainer::KNNResult knn_result =
+              comp_octree_->findKNN(query_point_comp, params_.k_nearest_neighbor);
+          distances->push_back(knn_result.distances);
+          if (knn_result.distances(0) > max_dist) max_dist = knn_result.distances(0);
+        }
       }
+    }
+    else {
+      unobserved_points->push_back(query_point);
     }
   }
   return max_dist;
