@@ -96,7 +96,7 @@ void OctomapContainer::processTree() {
 
   // Create kd tree.
   kd_tree_ = std::unique_ptr<Nabo::NNSearchD>(
-      Nabo::NNSearchD::createKDTreeTreeHeap(occupied_points_));
+      Nabo::NNSearchD::createKDTreeLinearHeap(occupied_points_));
   std::cout << "Created kd-tree\n";
 
 }
