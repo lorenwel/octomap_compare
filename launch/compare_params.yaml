@@ -1,0 +1,15 @@
+# dynamics candidate parameter
+distance_threshold: 0.2
+k_nearest_neighbor: 8
+distance_computation: "max"   # options are "min", "mean", "max", applied to result of knn search
+# clustering parameter
+eps: 0.3
+min_pts: 20
+# visualization parameter
+show_unobserved_voxels: false
+color_changes: true
+# octomap files
+base_file: '/home/lorenz/data/octomaps/hall_1_1cm.bt'
+comp_file: '/home/lorenz/data/octomaps/hall_2_1cm.bt'
+# currently not used
+max_vis_dist: 3.18    

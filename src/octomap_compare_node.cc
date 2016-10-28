@@ -24,6 +24,7 @@ int main(int argc, char** argv) {
   nh.param("k_nearest_neighbor", params.k_nearest_neighbor, params.k_nearest_neighbor);
   nh.param("show_unobserved_voxels", params.show_unobserved_voxels, params.show_unobserved_voxels);
   nh.param("distance_computation", params.distance_computation, params.distance_computation);
+  nh.param("color_changes", params.color_changes, params.color_changes);
   std::string base_file, comp_file;
   if (!nh.getParam("base_file", base_file)) {
     ROS_ERROR("Did not find base file parameter");
@@ -38,12 +39,15 @@ int main(int argc, char** argv) {
 
   OctomapCompare::CompareResult result = compare.compare();
 
-  Eigen::Matrix<double, 3, Eigen::Dynamic> changes;
-  Eigen::VectorXi cluster;
-  compare.getChanges(result, &changes, &cluster);
+  Eigen::Matrix<double, 3, Eigen::Dynamic> changes_appear, changes_disappear;
+  Eigen::VectorXi cluster_appear, cluster_disappear;
+  compare.getChanges(result, &changes_appear, &changes_disappear, &cluster_appear, &cluster_disappear);
 
   pcl::PointCloud<pcl::PointXYZRGB> changes_point_cloud;
-  changesToPointCloud(changes, cluster, &changes_point_cloud);
+  changesToPointCloud(changes_appear, changes_disappear, 
+                      cluster_appear, cluster_disappear, 
+                      params.color_changes,
+                      &changes_point_cloud);
 
   pcl::PointCloud<pcl::PointXYZRGB> distance_point_cloud;
   compare.compareResultToPointCloud(result, &distance_point_cloud);

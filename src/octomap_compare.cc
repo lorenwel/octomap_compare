@@ -198,9 +198,14 @@ void OctomapCompare::getTransformFromICP() {
 }
 
 void OctomapCompare::getChanges(const CompareResult& result,
-                                Eigen::Matrix<double, 3, Eigen::Dynamic>* output,
-                                Eigen::VectorXi* cluster) {
-  CHECK_NOTNULL(output);
+                  Eigen::Matrix<double, 3, Eigen::Dynamic>* output_appear,
+                  Eigen::Matrix<double, 3, Eigen::Dynamic>* output_disappear,
+                  Eigen::VectorXi* cluster_appear, 
+                  Eigen::VectorXi* cluster_disappear) {
+  CHECK_NOTNULL(output_appear);
+  CHECK_NOTNULL(output_disappear);
+  CHECK_NOTNULL(cluster_appear);
+  CHECK_NOTNULL(cluster_disappear);
   // Apply threshold.
   std::list<unsigned int> comp_indices;
   const double thres = params_.distance_threshold * params_.distance_threshold;
@@ -211,21 +216,27 @@ void OctomapCompare::getChanges(const CompareResult& result,
   for (unsigned int i = 0; i < result.base_distances.size(); ++i) {
     if (result.base_distances(i) > thres) base_indices.push_back(i);
   }
-  output->resize(3, comp_indices.size() + base_indices.size());
+  output_appear->resize(3, comp_indices.size());
+  output_disappear->resize(3, base_indices.size());
   size_t counter = 0;
   for (auto&& index : comp_indices) {
-    output->col(counter++) = result.comp_observed_points.col(index);
+    output_appear->col(counter++) = result.comp_observed_points.col(index);
   }
+  counter = 0;
   for (auto&& index : base_indices) {
-    output->col(counter++) = result.base_observed_points.col(index);
+    output_disappear->col(counter++) = result.base_observed_points.col(index);
   }
-  std::cout << output->cols() << " voxels left after distance thresholding\n";
+  std::cout << output_appear->cols() << " appearing voxels left after distance thresholding\n";
+  std::cout << output_disappear->cols() << " disappearing voxels left after distance thresholding\n";
   // Copy of transpose is necessary because dbscan works with a reference and has issues when
   // directly passing output->transpose().
-  Eigen::MatrixXd transpose(output->transpose());
+  Eigen::MatrixXd transpose_appear(output_appear->transpose());
+  Eigen::MatrixXd transpose_disappear(output_disappear->transpose());
   // DBSCAN filtering.
-  Dbscan dbscan(transpose, params_.eps, params_.min_pts);
-  dbscan.cluster(cluster);
+  Dbscan dbscan_appear(transpose_appear, params_.eps, params_.min_pts);
+  Dbscan dbscan_disappear(transpose_disappear, params_.eps, params_.min_pts);
+  dbscan_appear.cluster(cluster_appear);
+  dbscan_disappear.cluster(cluster_disappear);
 
 }
 

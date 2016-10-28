@@ -51,28 +51,64 @@ void extractCluster(const Eigen::MatrixXd& points, const Eigen::VectorXi& cluste
 
 }
 
-void changesToPointCloud(const Eigen::Matrix<double, 3, Eigen::Dynamic> matrix,
-                         const Eigen::VectorXi& cluster,
+void changesToPointCloud(const Eigen::Matrix<double, 3, Eigen::Dynamic> matrix_appear,
+                         const Eigen::Matrix<double, 3, Eigen::Dynamic> matrix_disappear,
+                         const Eigen::VectorXi& cluster_appear,
+                         const Eigen::VectorXi& cluster_disappear,
+                         const bool& color_changes,
                          pcl::PointCloud<pcl::PointXYZRGB>* cloud) {
   CHECK_NOTNULL(cloud)->clear();
   cloud->header.frame_id = "map";
   std::srand(0);
-  std::unordered_map<unsigned int, pcl::RGB> color_map;
+  std::unordered_map<unsigned int, pcl::RGB> color_map_appear;
+  std::unordered_map<unsigned int, pcl::RGB> color_map_disappear;
   std::unordered_set<int> cluster_indices;
-  for (unsigned int i = 0; i < cluster.rows(); ++i) {
-    cluster_indices.insert(cluster(i));
-    pcl::RGB color;
-    color.r = rand() * 255; color.g = rand() * 255; color.b = rand() * 255;
-    color_map[cluster(i)] = color;
+  // Generate cluster to color map.
+  if (!color_changes) {
+    for (unsigned int i = 0; i < cluster_appear.rows(); ++i) {
+      cluster_indices.insert(cluster_appear(i));
+      pcl::RGB color;
+      color.r = rand() * 255; color.g = rand() * 255; color.b = rand() * 255;
+      color_map_appear[cluster_appear(i)] = color;
+    }
+    cluster_indices.clear();
+    for (unsigned int i = 0; i < cluster_disappear.rows(); ++i) {
+      cluster_indices.insert(cluster_disappear(i));
+      pcl::RGB color;
+      color.r = rand() * 255; color.g = rand() * 255; color.b = rand() * 255;
+      color_map_disappear[cluster_disappear(i)] = color;
+    }
   }
-  std::cout << "Found " << cluster_indices.size() - 1 << " clusters\n";
-  for (unsigned int i = 0; i < matrix.cols(); ++i) {
-    if (cluster(i) != 0) {
-      pcl::RGB color = color_map[cluster(i)];
+  // Build point cloud.
+  for (unsigned int i = 0; i < matrix_appear.cols(); ++i) {
+    if (cluster_appear(i) != 0) {
+      pcl::RGB color;
+      if (color_changes) {
+        color.r = 0; color.g = 255; color.b = 0;
+      }
+      else {
+        color = color_map_appear[cluster_appear(i)];
+      }
       pcl::PointXYZRGB point(color.r, color.g, color.b);
-      point.x = matrix(0,i);
-      point.y = matrix(1,i);
-      point.z = matrix(2,i);
+      point.x = matrix_appear(0,i);
+      point.y = matrix_appear(1,i);
+      point.z = matrix_appear(2,i);
+      cloud->push_back(point);
+    }
+  }
+  for (unsigned int i = 0; i < matrix_disappear.cols(); ++i) {
+    if (cluster_disappear(i) != 0) {
+      pcl::RGB color;
+      if (color_changes) {
+        color.r = 255; color.g = 0; color.b = 0;
+      }
+      else {
+        color = color_map_disappear[cluster_disappear(i)];
+      }
+      pcl::PointXYZRGB point(color.r, color.g, color.b);
+      point.x = matrix_disappear(0,i);
+      point.y = matrix_disappear(1,i);
+      point.z = matrix_disappear(2,i);
       cloud->push_back(point);
     }
   }

@@ -35,7 +35,8 @@ public:
       min_pts(10),
       k_nearest_neighbor(1),
       show_unobserved_voxels(true), 
-      distance_computation("max") {}
+      distance_computation("max"), 
+      color_changes(true) {}
 
     // Distance value used as maximum for voxel coloring in visualization.
     double max_vis_dist;
@@ -52,6 +53,8 @@ public:
     bool show_unobserved_voxels;
     // Distance metric to use when computing distance from knn search.
     std::string distance_computation;
+    // Color changes point cloud based on appearing/disappearing.
+    bool color_changes;
   };
 
 private:
@@ -102,8 +105,10 @@ public:
 
   /// \brief Get changes between octomaps using the result from a comparison.
   void getChanges(const CompareResult& result,
-                  Eigen::Matrix<double, 3, Eigen::Dynamic>* output,
-                  Eigen::VectorXi* cluster);
+                  Eigen::Matrix<double, 3, Eigen::Dynamic>* output_appear,
+                  Eigen::Matrix<double, 3, Eigen::Dynamic>* output_disappear,
+                  Eigen::VectorXi* cluster_appear, 
+                  Eigen::VectorXi* cluster_disappear);
 
   /// \brief Get a point cloud visualizing the comparison result.
   void compareResultToPointCloud(const CompareResult& result,
