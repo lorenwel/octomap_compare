@@ -35,7 +35,7 @@ public:
       min_pts(10),
       k_nearest_neighbor(1),
       show_unobserved_voxels(true), 
-      distance_metric("max") {}
+      distance_computation("max") {}
 
     // Distance value used as maximum for voxel coloring in visualization.
     double max_vis_dist;
@@ -51,7 +51,7 @@ public:
     // Show unobserved voxels in visualization of distance between octomaps.
     bool show_unobserved_voxels;
     // Distance metric to use when computing distance from knn search.
-    std::string distance_metric;
+    std::string distance_computation;
   };
 
 private:

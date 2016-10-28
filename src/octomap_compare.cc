@@ -127,7 +127,7 @@ double OctomapCompare::compareForward(std::list<Eigen::Vector3d>* observed_point
       else {
         OctomapContainer::KNNResult knn_result =
             base_octree_->findKNN(query_point, params_.k_nearest_neighbor);
-        distances->push_back(getCompareDist(knn_result.distances, params_.distance_metric));
+        distances->push_back(getCompareDist(knn_result.distances, params_.distance_computation));
         keys->push_back(knn_result.keys.front());
         if (distances->back() > max_dist) max_dist = knn_result.distances(0);
       }
@@ -173,7 +173,7 @@ double OctomapCompare::compareBackward(const KeyToDistMap& key_to_dist,
         else {
           OctomapContainer::KNNResult knn_result =
               comp_octree_->findKNN(query_point_comp, params_.k_nearest_neighbor);
-          distances->push_back(getCompareDist(knn_result.distances, params_.distance_metric));
+          distances->push_back(getCompareDist(knn_result.distances, params_.distance_computation));
           if (distances->back() > max_dist) max_dist = knn_result.distances(0);
         }
       }
