@@ -38,7 +38,7 @@ OctomapCompare::CompareResult OctomapCompare::compare() {
   getTransformFromICP();
 
   std::list<Eigen::Vector3d> comp_observed_points;
-  std::list<Eigen::VectorXd> comp_distances;
+  std::list<double> comp_distances;
   std::list<Eigen::Vector3d> unobserved_points;
   std::list<octomap::OcTreeKey> base_keys;
   double max_dist =
@@ -50,7 +50,7 @@ OctomapCompare::CompareResult OctomapCompare::compare() {
     for (auto iter_pair = std::make_pair(base_keys.begin(), comp_distances.begin());
          iter_pair.first != base_keys.end() && iter_pair.second != comp_distances.end();
          ++iter_pair.first, ++iter_pair.second) {
-      const double cur_dist = (*iter_pair.second)(0);
+      const double cur_dist = (*iter_pair.second);
       auto key_iter = key_to_dist.emplace(*iter_pair.first, cur_dist);
       // Do comparison if element already exists.
       if (!key_iter.second && key_iter.first->second > cur_dist) {
@@ -60,7 +60,7 @@ OctomapCompare::CompareResult OctomapCompare::compare() {
   }
 
   std::list<Eigen::Vector3d> base_observed_points;
-  std::list<Eigen::VectorXd> base_distances;
+  std::list<double> base_distances;
   compareBackward(key_to_dist, max_dist, &base_observed_points, &base_distances, &unobserved_points);
 
   // Fill result matrices.
@@ -70,19 +70,19 @@ OctomapCompare::CompareResult OctomapCompare::compare() {
   result.base_observed_points.resize(3, base_size);
   result.comp_observed_points.resize(3, comp_size);
   result.unobserved_points.resize(3, unobserved_size);
-  result.base_distances.resize(params_.k_nearest_neighbor, base_size);
-  result.comp_distances.resize(params_.k_nearest_neighbor, comp_size);
+  result.base_distances.resize(base_size);
+  result.comp_distances.resize(comp_size);
   result.max_dist = max_dist;
   for (size_t i = 0; i < base_size; ++i) {
     result.base_observed_points.col(i) = base_observed_points.front();
     base_observed_points.pop_front();
-    result.base_distances.col(i) = base_distances.front();
+    result.base_distances(i) = base_distances.front();
     base_distances.pop_front();
   }
   for (size_t i = 0; i < comp_size; ++i) {
     result.comp_observed_points.col(i) = comp_observed_points.front();
     comp_observed_points.pop_front();
-    result.comp_distances.col(i) = comp_distances.front();
+    result.comp_distances(i) = comp_distances.front();
     comp_distances.pop_front();
   }
   for (size_t i = 0; i < unobserved_size; ++i) {
@@ -98,7 +98,7 @@ OctomapCompare::CompareResult OctomapCompare::compare() {
 }
 
 double OctomapCompare::compareForward(std::list<Eigen::Vector3d>* observed_points,
-                                      std::list<Eigen::VectorXd>* distances,
+                                      std::list<double>* distances,
                                       std::list<Eigen::Vector3d>* unobserved_points,
                                       std::list<octomap::OcTreeKey>* keys) {
   CHECK_NOTNULL(observed_points);
@@ -118,7 +118,7 @@ double OctomapCompare::compareForward(std::list<Eigen::Vector3d>* observed_point
       if (params_.k_nearest_neighbor == 1 &&
           base_node &&
           (*base_octree_)->isNodeOccupied(base_node)) {
-        distances->push_back(Eigen::Matrix<double, 1, 1>::Zero());
+        distances->push_back(0);
         // TODO: find a better way to get key from node pointer.
         keys->push_back((*base_octree_)->coordToKey(octomap::point3d(query_point.x(),
                                                                      query_point.y(),
@@ -127,9 +127,9 @@ double OctomapCompare::compareForward(std::list<Eigen::Vector3d>* observed_point
       else {
         OctomapContainer::KNNResult knn_result =
             base_octree_->findKNN(query_point, params_.k_nearest_neighbor);
-        distances->push_back(knn_result.distances);
+        distances->push_back(getCompareDist(knn_result.distances, params_.distance_metric));
         keys->push_back(knn_result.keys.front());
-        if (knn_result.distances(0) > max_dist) max_dist = knn_result.distances(0);
+        if (distances->back() > max_dist) max_dist = knn_result.distances(0);
       }
     }
     else {
@@ -142,7 +142,7 @@ double OctomapCompare::compareForward(std::list<Eigen::Vector3d>* observed_point
 double OctomapCompare::compareBackward(const KeyToDistMap& key_to_dist,
                                      double max_dist,
                                      std::list<Eigen::Vector3d>* observed_points,
-                                     std::list<Eigen::VectorXd>* distances,
+                                     std::list<double>* distances,
                                      std::list<Eigen::Vector3d>* unobserved_points) {
   CHECK_NOTNULL(observed_points);
   CHECK_NOTNULL(distances);
@@ -159,7 +159,7 @@ double OctomapCompare::compareBackward(const KeyToDistMap& key_to_dist,
       if (params_.k_nearest_neighbor == 1 &&
           comp_node &&
           (*comp_octree_)->isNodeOccupied(comp_node)) {
-        distances->push_back(Eigen::Matrix<double, 1, 1>::Zero());
+        distances->push_back(0);
       }
       else {
         // Check if we already know the distance.
@@ -168,13 +168,13 @@ double OctomapCompare::compareBackward(const KeyToDistMap& key_to_dist,
                                                                                    query_point.z()));
         auto key_iter = key_to_dist.find(base_key);
         if (key_iter != key_to_dist.end()) {
-          distances->push_back(Eigen::Matrix<double, 1, 1>::Constant(key_iter->second));
+          distances->push_back(key_iter->second);
         }
         else {
           OctomapContainer::KNNResult knn_result =
               comp_octree_->findKNN(query_point_comp, params_.k_nearest_neighbor);
-          distances->push_back(knn_result.distances);
-          if (knn_result.distances(0) > max_dist) max_dist = knn_result.distances(0);
+          distances->push_back(getCompareDist(knn_result.distances, params_.distance_metric));
+          if (distances->back() > max_dist) max_dist = knn_result.distances(0);
         }
       }
     }
@@ -204,12 +204,12 @@ void OctomapCompare::getChanges(const CompareResult& result,
   // Apply threshold.
   std::list<unsigned int> comp_indices;
   const double thres = params_.distance_threshold * params_.distance_threshold;
-  for (unsigned int i = 0; i < result.comp_distances.cols(); ++i) {
-    if (result.comp_distances(0,i) > thres) comp_indices.push_back(i);
+  for (unsigned int i = 0; i < result.comp_distances.size(); ++i) {
+    if (result.comp_distances(i) > thres) comp_indices.push_back(i);
   }
   std::list<unsigned int> base_indices;
-  for (unsigned int i = 0; i < result.base_distances.cols(); ++i) {
-    if (result.base_distances(0,i) > thres) base_indices.push_back(i);
+  for (unsigned int i = 0; i < result.base_distances.size(); ++i) {
+    if (result.base_distances(i) > thres) base_indices.push_back(i);
   }
   output->resize(3, comp_indices.size() + base_indices.size());
   size_t counter = 0;
@@ -235,7 +235,7 @@ void OctomapCompare::compareResultToPointCloud(const CompareResult& result,
   distance_point_cloud->header.frame_id = "map";
   const double max_dist = sqrt(result.max_dist);
   for (unsigned int i = 0; i < result.base_observed_points.cols(); ++i) {
-    pcl::RGB color = getColorFromDistance(sqrt(result.base_distances(0,i)), max_dist);
+    pcl::RGB color = getColorFromDistance(sqrt(result.base_distances(i)), max_dist);
     pcl::PointXYZRGB pointrgb(color.r, color.g, color.b);
     pointrgb.x = result.base_observed_points(0,i);
     pointrgb.y = result.base_observed_points(1,i);
@@ -243,7 +243,7 @@ void OctomapCompare::compareResultToPointCloud(const CompareResult& result,
     distance_point_cloud->push_back(pointrgb);
   }
   for (unsigned int i = 0; i < result.comp_observed_points.cols(); ++i) {
-    pcl::RGB color = getColorFromDistance(sqrt(result.comp_distances(0,i)), max_dist);
+    pcl::RGB color = getColorFromDistance(sqrt(result.comp_distances(i)), max_dist);
     pcl::PointXYZRGB pointrgb(color.r, color.g, color.b);
     pointrgb.x = result.comp_observed_points(0,i);
     pointrgb.y = result.comp_observed_points(1,i);

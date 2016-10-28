@@ -13,6 +13,16 @@
 
 typedef PointMatcher<double> PM;
 
+double getCompareDist(const Eigen::VectorXd& distances, const std::string& dist_metric = "max") {
+  if (dist_metric == "max") return distances(distances.size() - 1);
+  else if (dist_metric == "mean") return distances.mean();
+  else if (dist_metric == "min") return distances(0);
+  else {
+    std::cerr << "Invalid distances metric.\n";
+    return -1;
+  }
+}
+
 /// \brief Creates new OctomapContainer object with Octomap created from arg.
 template <typename T>
 void loadOctomap(const T& arg, std::shared_ptr<OctomapContainer>* container) {

@@ -21,8 +21,8 @@ public:
   struct CompareResult {
     Eigen::Matrix<double, 3, Eigen::Dynamic> base_observed_points;
     Eigen::Matrix<double, 3, Eigen::Dynamic> comp_observed_points;
-    Eigen::MatrixXd base_distances;
-    Eigen::MatrixXd comp_distances;
+    Eigen::VectorXd base_distances;
+    Eigen::VectorXd comp_distances;
     Eigen::Matrix<double, 3, Eigen::Dynamic> unobserved_points;
     double max_dist;
   };
@@ -34,7 +34,8 @@ public:
       eps(0.3),
       min_pts(10),
       k_nearest_neighbor(1),
-      show_unobserved_voxels(true) {}
+      show_unobserved_voxels(true), 
+      distance_metric("max") {}
 
     // Distance value used as maximum for voxel coloring in visualization.
     double max_vis_dist;
@@ -49,6 +50,8 @@ public:
     int k_nearest_neighbor;
     // Show unobserved voxels in visualization of distance between octomaps.
     bool show_unobserved_voxels;
+    // Distance metric to use when computing distance from knn search.
+    std::string distance_metric;
   };
 
 private:
@@ -71,7 +74,7 @@ private:
 
   /// \brief Get changes with distances from comp voxel to closest base voxel.
   double compareForward(std::list<Eigen::Vector3d>* observed_points,
-                        std::list<Eigen::VectorXd>* distances,
+                        std::list<double>* distances,
                         std::list<Eigen::Vector3d>* unobserved_points,
                         std::list<octomap::OcTreeKey>* keys);
 
@@ -79,7 +82,7 @@ private:
   double compareBackward(const KeyToDistMap& key_to_dist,
                          double max_dist,
                          std::list<Eigen::Vector3d>* observed_points,
-                         std::list<Eigen::VectorXd>* distances,
+                         std::list<double>* distances,
                          std::list<Eigen::Vector3d>* unobserved_points);
 
   /// \brief Get transform to align octomaps.
