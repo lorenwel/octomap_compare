@@ -36,7 +36,11 @@ public:
       k_nearest_neighbor(1),
       show_unobserved_voxels(true), 
       distance_computation("max"), 
-      color_changes(true) {}
+      color_changes(true), 
+      initial_transform({1, 0, 0, 0,
+                         0, 1, 0, 0,
+                         0, 0, 1, 0,
+                         0, 0, 0, 1}) {}
 
     // Distance value used as maximum for voxel coloring in visualization.
     double max_vis_dist;
@@ -55,6 +59,8 @@ public:
     std::string distance_computation;
     // Color changes point cloud based on appearing/disappearing.
     bool color_changes;
+    // Initial transform for icp.
+    std::vector<double> initial_transform;
   };
 
 private:

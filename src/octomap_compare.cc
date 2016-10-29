@@ -186,14 +186,23 @@ double OctomapCompare::compareBackward(const KeyToDistMap& key_to_dist,
 }
 
 void OctomapCompare::getTransformFromICP() {
+  // Get initial transform.
+  Eigen::Matrix<double, 4, 4> T_initial_transpose(params_.initial_transform.data());
+  Eigen::Matrix<double, 4, 4> T_initial;
+  T_initial = T_initial_transpose.transpose();
+  std::cout << "Initial transform is\n" << T_initial << "\n";
+  // Initialize ICP.
   PM::ICP icp;
   icp.setDefault();
   PM::DataPoints base_points = matrix3dEigenToPointMatcher(base_octree_->Points());
-  PM::DataPoints comp_points = matrix3dEigenToPointMatcher(comp_octree_->Points());
-
+  PM::DataPoints comp_points = matrix3dEigenToPointMatcher(comp_octree_->Points(), T_initial);
+  // Do ICP.
   PM::TransformationParameters T = icp(comp_points, base_points);
-  std::cout << "Done ICPeeing, transform is\n"<< T << "\n";
-  T_base_comp_.matrix() = T;
+  // Get transform.
+  Eigen::Matrix<double, 4, 4> T_eigen;
+  T_eigen = T;
+  T_base_comp_.matrix() = T_eigen*T_initial;
+  std::cout << "Done ICPeeing, transform is\n"<< T_base_comp_.matrix() << "\n";
   T_comp_base_ = T_base_comp_.inverse();
 }
 

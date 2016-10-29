@@ -1,3 +1,8 @@
+# icp
+initial_transform: [1, 0, 0, 0.76, 
+                    0, 1, 0, -0.26,
+                    0, 0, 1, 0,
+                    0, 0, 0, 1]
 # dynamics candidate parameter
 distance_threshold: 0.2
 k_nearest_neighbor: 8
@@ -9,7 +14,7 @@ min_pts: 20
 show_unobserved_voxels: false
 color_changes: true
 # octomap files
-base_file: '/home/lorenz/data/octomaps/hall_1_1cm.bt'
-comp_file: '/home/lorenz/data/octomaps/hall_2_1cm.bt'
+base_file: '/home/lorenz/data/octomaps/hall_1.bt'
+comp_file: '/home/lorenz/data/octomaps/hall_2.bt'
 # currently not used
 max_vis_dist: 3.18    

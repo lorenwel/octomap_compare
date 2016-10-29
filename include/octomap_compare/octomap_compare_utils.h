@@ -31,16 +31,22 @@ void loadOctomap(const T& arg, std::shared_ptr<OctomapContainer>* container) {
 
 /// \brief Converts a 3xN Eigen matrix to a PointMatcher cloud.
 PM::DataPoints matrix3dEigenToPointMatcher(
-    const Eigen::Matrix<double, 3, Eigen::Dynamic>& matrix) {
+    const Eigen::Matrix<double, 3, Eigen::Dynamic>& matrix, 
+    const Eigen::Matrix<double, 4, 4>& transform_matrix = Eigen::MatrixXd::Identity(4,4)) {
+  const size_t n_points = matrix.cols();
+  const Eigen::Matrix<double, 3, 3> rot = transform_matrix.block(0,0,3,3);
+  const Eigen::Vector3d trans = transform_matrix.block(0,3,3,1);
+  Eigen::Matrix<double, 3, Eigen::Dynamic> matrix_transformed(3, n_points);
+  for (size_t i = 0; i < n_points; ++i) matrix_transformed.col(i) = rot * matrix.col(i) + trans;
   PM::DataPoints::Labels xyz1;
   xyz1.push_back(PM::DataPoints::Label("x", 1));
   xyz1.push_back(PM::DataPoints::Label("y", 1));
   xyz1.push_back(PM::DataPoints::Label("z", 1));
   xyz1.push_back(PM::DataPoints::Label("pad", 1));
   PM::DataPoints point_matcher(xyz1, PM::DataPoints::Labels(), matrix.cols());
-  point_matcher.getFeatureViewByName("x") = matrix.row(0);
-  point_matcher.getFeatureViewByName("y") = matrix.row(1);
-  point_matcher.getFeatureViewByName("z") = matrix.row(2);
+  point_matcher.getFeatureViewByName("x") = matrix_transformed.row(0);
+  point_matcher.getFeatureViewByName("y") = matrix_transformed.row(1);
+  point_matcher.getFeatureViewByName("z") = matrix_transformed.row(2);
   point_matcher.getFeatureViewByName("pad").setConstant(1);
 
   return point_matcher;

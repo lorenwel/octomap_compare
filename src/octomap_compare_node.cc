@@ -25,6 +25,7 @@ int main(int argc, char** argv) {
   nh.param("show_unobserved_voxels", params.show_unobserved_voxels, params.show_unobserved_voxels);
   nh.param("distance_computation", params.distance_computation, params.distance_computation);
   nh.param("color_changes", params.color_changes, params.color_changes);
+  nh.param("initial_transform", params.initial_transform, params.initial_transform);
   std::string base_file, comp_file;
   if (!nh.getParam("base_file", base_file)) {
     ROS_ERROR("Did not find base file parameter");
