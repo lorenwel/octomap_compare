@@ -1,4 +1,4 @@
-#include "octomap_compare/octomap_container.h"
+#include "octomap_compare/container/octomap_container.h"
 
 #include <cassert>
 
@@ -14,24 +14,6 @@ OctomapContainer::OctomapContainer(const std::shared_ptr<octomap::OcTree>& octre
   processTree();
 }
 
-OctomapContainer::KNNResult OctomapContainer::findKNN(const Eigen::Vector3d& point,
-                                                       const unsigned int& n_neighbors) const {
-  // Query.
-  Eigen::VectorXi indices(n_neighbors);
-  Eigen::VectorXd distances(n_neighbors);
-  kd_tree_->knn(point, indices, distances, n_neighbors, 0, Nabo::NNSearchD::SORT_RESULTS);
-
-  //Fill QueryResult.
-  KNNResult result(n_neighbors);
-  result.distances = distances;
-  for (unsigned int i = 0; i < n_neighbors; ++i) {
-    const unsigned int cur_index = indices[i];
-    result.keys[i] = key_map_[cur_index];
-    result.points.col(i) = occupied_points_.col(cur_index);
-  }
-  return result;
-}
-
 bool OctomapContainer::isObserved(const Eigen::Vector3d &point, octomap::OcTreeNode** node) const {
   *node = octree_->search(point.x(), point.y(), point.z());
   return *node;
@@ -41,6 +23,7 @@ void OctomapContainer::processTree() {
   const unsigned int max_tree_depth = octree_->getTreeDepth();
   const double resolution = octree_->getResolution();
 
+  // TODO: Put this in main loop. Iterating through leafs is slow.
   // Get number of occupied voxels.
   unsigned int voxel_count = 0;
   for (octomap::OcTree::leaf_iterator it = octree_->begin_leafs();
@@ -53,16 +36,15 @@ void OctomapContainer::processTree() {
 
   std::cout << "Found " << voxel_count << " occupied voxels\n";
   occupied_points_.resize(3, voxel_count);
-  key_map_.resize(voxel_count);
 
   // Fill matrix.
-  unsigned int index = 0;
+  size_t index = 0;
   for (octomap::OcTree::leaf_iterator it = octree_->begin_leafs();
        it != octree_->end_leafs(); ++it) {
     if (octree_->isNodeOccupied(*it)) {
       if (max_tree_depth == it.getDepth()) {
         occupied_points_.col(index) = Eigen::Vector3d(it.getX(), it.getY(), it.getZ());
-        key_map_[index++] = it.getKey();
+        ++index;
       }
       // If leaf is not max depth it represents an occupied voxel with edge
       // length of 2^(max_tree_depth - leaf_depth) * resolution.
@@ -84,7 +66,7 @@ void OctomapContainer::processTree() {
             for (double z_position = bbx_min.z(); z_position <= bbx_max.z();
                  z_position += resolution) {
               occupied_points_.col(index) = Eigen::Vector3d(x_position, y_position, z_position);
-              key_map_[index++] = it.getKey();
+              ++index;
             }
           }
         }

@@ -36,9 +36,10 @@ int main(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  OctomapCompare compare(base_file, comp_file, params);
+  OctomapCompare compare(base_file, params);
 
-  OctomapCompare::CompareResult result = compare.compare();
+  OctomapContainer comp_octree(comp_file);
+  OctomapCompare::CompareResult result = compare.compare(comp_octree);
 
   Eigen::Matrix<double, 3, Eigen::Dynamic> changes_appear, changes_disappear;
   Eigen::VectorXi cluster_appear, cluster_disappear;

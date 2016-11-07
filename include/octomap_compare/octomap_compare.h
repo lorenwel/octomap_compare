@@ -11,7 +11,8 @@
 #include <pcl/point_types.h>
 
 #include "octomap_compare/octomap_compare_utils.h"
-#include "octomap_compare/octomap_container.h"
+#include "octomap_compare/container/octomap_container.h"
+#include "octomap_compare/container/point_cloud_container.h"
 
 class OctomapCompare {
 
@@ -66,10 +67,7 @@ public:
 private:
 
   // Octomap considered to be the base map for comparison.
-  std::shared_ptr<OctomapContainer> base_octree_;
-
-  // Octomap which will be compared to the base octomap.
-  std::shared_ptr<OctomapContainer> comp_octree_;
+  OctomapContainer base_octree_;
 
   // Transformation from comp_octree_ frame to base_octree_ frame.
   Eigen::Affine3d T_base_comp_;
@@ -82,32 +80,33 @@ private:
   pcl::RGB getColorFromDistance(const double& dist, const double& max_dist = 1);
 
   /// \brief Get changes with distances from comp voxel to closest base voxel.
-  double compareForward(std::list<Eigen::Vector3d>* observed_points,
+  double compareForward(const ContainerBase& compare_container,
+                        std::list<Eigen::Vector3d>* observed_points,
                         std::list<double>* distances,
-                        std::list<Eigen::Vector3d>* unobserved_points,
-                        std::list<octomap::OcTreeKey>* keys);
+                        std::list<Eigen::Vector3d>* unobserved_points);
 
   /// \brief Get changes with distances from base voxel to closest comp voxel.
-  double compareBackward(const KeyToDistMap& key_to_dist,
+  template<typename ContainerType>
+  double compareBackward(const ContainerType& compare_container,
                          double max_dist,
                          std::list<Eigen::Vector3d>* observed_points,
                          std::list<double>* distances,
                          std::list<Eigen::Vector3d>* unobserved_points);
 
   /// \brief Get transform to align octomaps.
-  void getTransformFromICP();
+  void getTransformFromICP(const ContainerBase& compare_container);
 
 public:
   /// \brief Constructor which reads octomaps from specified files.
-  OctomapCompare(const std::string& base_file, const std::string& comp_file,
+  OctomapCompare(const std::string& base_file,
                  const CompareParams& params = CompareParams());
 
   OctomapCompare(const std::shared_ptr<octomap::OcTree>& base_tree,
-                 const std::shared_ptr<octomap::OcTree>& comp_tree,
                  const CompareParams& params = CompareParams());
 
   /// \brief Compare both loaded point clouds and return colored point cloud.
-  CompareResult compare();
+  template<typename ContainerType>
+  CompareResult compare(const ContainerType& compare_container);
 
   /// \brief Get changes between octomaps using the result from a comparison.
   void getChanges(const CompareResult& result,
