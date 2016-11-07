@@ -38,6 +38,7 @@ public:
       show_unobserved_voxels(true), 
       distance_computation("max"), 
       color_changes(true), 
+      perform_icp(true),
       initial_transform({1, 0, 0, 0,
                          0, 1, 0, 0,
                          0, 0, 1, 0,
@@ -62,6 +63,8 @@ public:
     bool color_changes;
     // Initial transform for icp.
     std::vector<double> initial_transform;
+    // Perform ICP or not.
+    bool perform_icp;
   };
 
 private:

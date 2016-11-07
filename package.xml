@@ -18,12 +18,14 @@
   <depend>gflags_catkin</depend>
   <depend>libnabo</depend>
   <depend>libpointmatcher</depend>
+  <depend>libpointmatcher_ros</depend>
   <depend>message_generation</depend>
   <depend>message_runtime</depend>
   <depend>octomap</depend>
   <depend>octomap_ros</depend>
   <depend>rosbag</depend>
   <depend>roscpp</depend>  
+  <depend>pcl_ros</depend>
   <depend>tf</depend>
   
 </package>

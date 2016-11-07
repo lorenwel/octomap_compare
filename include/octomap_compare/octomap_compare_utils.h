@@ -46,6 +46,18 @@ PM::DataPoints matrix3dEigenToPointMatcher(
   return point_matcher;
 }
 
+/// \brief Converts a 3xN Eigen matrix to a PointMatcher cloud.
+Eigen::Matrix<double, 3, Eigen::Dynamic> pointMatcherToMatrix3dEigen(
+    const PM::DataPoints& points) {
+  const size_t n_points = points.getNbPoints();
+  Eigen::Matrix<double, 3, Eigen::Dynamic> matrix(3, n_points);
+  matrix.row(0) = points.getFeatureViewByName("x");
+  matrix.row(1) = points.getFeatureViewByName("y");
+  matrix.row(2) = points.getFeatureViewByName("z");
+
+  return matrix;
+}
+
 void extractCluster(const Eigen::MatrixXd& points, const Eigen::VectorXi& cluster_indices,
                     std::vector<Eigen::MatrixXd>* cluster, Eigen::MatrixXd* outlier) {
 

@@ -160,6 +160,17 @@ double OctomapCompare::compareBackward(
   CHECK_NOTNULL(observed_points);
   CHECK_NOTNULL(distances);
   CHECK_NOTNULL(unobserved_points);
+  // Compare base octree to comp octree.
+  const unsigned int n_points = base_octree_.Points().cols();
+  for (unsigned int i = 0; i < n_points; ++i) {
+    Eigen::Vector3d query_point(base_octree_.Points().col(i));
+    Eigen::Vector3d query_point_comp = T_comp_base_ * query_point;
+
+    OctomapContainer::KNNResult knn_result =
+        compare_container.findKNN(query_point_comp, params_.k_nearest_neighbor);
+    distances->push_back(getCompareDist(knn_result.distances, params_.distance_computation));
+    if (distances->back() > max_dist) max_dist = knn_result.distances(0);
+  }
 
   return max_dist;
 }
@@ -177,12 +188,13 @@ void OctomapCompare::getTransformFromICP(const ContainerBase& compare_container)
   PM::DataPoints comp_points = matrix3dEigenToPointMatcher(compare_container.Points());
   // Do ICP.
   PM::TransformationParameters T(T_initial);
-  T = icp(comp_points, base_points, T);
+  if (params_.perform_icp) T = icp(comp_points, base_points, T);
   // Get transform.
   Eigen::Matrix<double, 4, 4> T_eigen;
   T_eigen = T;
   T_base_comp_.matrix() = T_eigen*T_initial;
-  std::cout << "Done ICPeeing, transform is\n"<< T_base_comp_.matrix() << "\n";
+  if (params_.perform_icp) std::cout << "Done ICPeeing, transform is\n"
+                                     << T_base_comp_.matrix() << "\n";
   T_comp_base_ = T_base_comp_.inverse();
 }
 

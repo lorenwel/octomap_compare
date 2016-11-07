@@ -1,3 +1,5 @@
+#include <chrono>
+
 #include <Eigen/Dense>
 #include <ros/ros.h>
 #include <pcl_ros/point_cloud.h>
@@ -13,8 +15,6 @@ int main(int argc, char** argv) {
 
   ros::NodeHandle nh("~");
 
-  ros::WallTime start = ros::WallTime::now();
-
   // Get parameters.
   OctomapCompare::CompareParams params;
   nh.param("max_vis_dist", params.max_vis_dist, params.max_vis_dist);
@@ -26,6 +26,7 @@ int main(int argc, char** argv) {
   nh.param("distance_computation", params.distance_computation, params.distance_computation);
   nh.param("color_changes", params.color_changes, params.color_changes);
   nh.param("initial_transform", params.initial_transform, params.initial_transform);
+  nh.param("perform_icp", params.perform_icp, params.perform_icp);
   std::string base_file, comp_file;
   if (!nh.getParam("base_file", base_file)) {
     ROS_ERROR("Did not find base file parameter");
@@ -38,8 +39,13 @@ int main(int argc, char** argv) {
 
   OctomapCompare compare(base_file, params);
 
+  auto start = std::chrono::high_resolution_clock::now();
+
   OctomapContainer comp_octree(comp_file);
   OctomapCompare::CompareResult result = compare.compare(comp_octree);
+
+  auto end = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double> duration = end - start;
 
   Eigen::Matrix<double, 3, Eigen::Dynamic> changes_appear, changes_disappear;
   Eigen::VectorXi cluster_appear, cluster_disappear;
@@ -61,9 +67,7 @@ int main(int argc, char** argv) {
   changes_pub.publish(changes_point_cloud);
   std::cout << "Published changes point cloud\n";
   std::cout << "Published color point cloud\n";
-
-  ros::WallDuration dif = ros::WallTime::now() - start;
-  std::cout << "This all took " << dif.toSec() << " seconds\n";
+  std::cout << "Comparing took " << duration.count() << " seconds\n";
 
   // Keep topic advertised.
   while (ros::ok()) {

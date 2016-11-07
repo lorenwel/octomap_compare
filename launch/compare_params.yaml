@@ -1,20 +1,21 @@
 # icp
-initial_transform: [1, 0, 0, 0.76, 
-                    0, 1, 0, -0.26,
+perform_icp: true
+initial_transform: [1, 0, 0, 0, 
+                    0, 1, 0, 0,
                     0, 0, 1, 0,
-                    0, 0, 0, 1]
+                    0, 0, 0, 1]                    
 # dynamics candidate parameter
-distance_threshold: 0.2
+distance_threshold: 0.4
 k_nearest_neighbor: 8
 distance_computation: "max"   # options are "min", "mean", "max", applied to result of knn search
 # clustering parameter
 eps: 0.3
 min_pts: 20
 # visualization parameter
-show_unobserved_voxels: false
-color_changes: true
+show_unobserved_voxels: true
+color_changes: false
 # octomap files
-base_file: '/home/lorenz/data/octomaps/hall_1.bt'
-comp_file: '/home/lorenz/data/octomaps/hall_2.bt'
+base_file: '/home/lorenwel/data/octomaps/powerplant/delta_5_1.bt'
+comp_file: '/home/lorenwel/data/octomaps/powerplant/delta_5_2.bt'
 # currently not used
 max_vis_dist: 3.18    
