@@ -137,4 +137,45 @@ void matrixToPointCloud(const Eigen::Matrix<double, 3, Eigen::Dynamic> matrix,
   }
 }
 
+/// \brief Gets point color based on distance for use in visualization.
+pcl::RGB getColorFromDistance(const double& dist, double max_dist = 1) {
+  if (max_dist < 1) max_dist = 1; // Avoid crazy heat map with small max_dist.
+  const double first = max_dist / 4;
+  const double second = max_dist / 2;
+  const double third = first + second;
+  pcl::RGB color;
+  if (dist > max_dist) {
+    color.r = 255;
+    color.g = 0;
+    color.b = 0;
+  }
+  else if (dist > third) {
+    color.r = 255;
+    color.g = (max_dist - dist)/first*255;
+    color.b = 0;
+  }
+  else if (dist > second) {
+    color.r = (dist - second)/first*255;
+    color.g = 255;
+    color.b = 0;
+  }
+  else if (dist > first) {
+    color.r = 0;
+    color.g = 255;
+    color.b = (second - dist)/first*255;
+  }
+  else if (dist >= 0) {
+    color.r = 0;
+    color.g = dist/first * 255;
+    color.b = 255;
+  }
+  else {
+    // Negative distance. Used to mark previously unobserved points.
+    color.r = 180;
+    color.g = 180;
+    color.b = 180;
+  }
+  return color;
+}
+
 #endif /* OCTOMAP_COMPARE_UTILS_H_ */

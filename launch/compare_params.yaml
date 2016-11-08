@@ -1,21 +1,20 @@
 # icp
-perform_icp: true
+perform_icp: true # perform icp or not
 initial_transform: [1, 0, 0, 0, 
                     0, 1, 0, 0,
                     0, 0, 1, 0,
-                    0, 0, 0, 1]                    
+                    0, 0, 0, 1] # use this initial transform for offline comparison
 # dynamics candidate parameter
-distance_threshold: 0.4
-k_nearest_neighbor: 8
+distance_threshold: 0.4 # distance threshold for a point to be considered change candidate
+k_nearest_neighbor: 8 # number of neighbors to use for distance computation
 distance_computation: "max"   # options are "min", "mean", "max", applied to result of knn search
 # clustering parameter
-eps: 0.3
-min_pts: 20
+eps: 0.3  # distance for other points to be considered neighbors
+min_pts: 20 # number of points in neighborhood to be considered a cluster base point
 # visualization parameter
-show_unobserved_voxels: true
-color_changes: false
+show_unobserved_voxels: true  # show unobserved voxels/points in distance heat map
+color_changes: false  # color changes based on them appearing/disappearing
+max_vis_dist: 0.0 # max distance for heat map color. Setting 0 uses maximum distance of distance computation
 # octomap files
-base_file: '/home/lorenwel/data/octomaps/powerplant/delta_5_1.bt'
-comp_file: '/home/lorenwel/data/octomaps/powerplant/delta_5_2.bt'
-# currently not used
-max_vis_dist: 3.18    
+base_file: '/home/lorenwel/data/octomaps/powerplant/delta_5_1.bt' # base octomap to compare to
+comp_file: '/home/lorenwel/data/octomaps/powerplant/delta_5_2.bt' # comparison octomap for offline comparison

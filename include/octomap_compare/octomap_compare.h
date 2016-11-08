@@ -38,11 +38,7 @@ public:
       show_unobserved_voxels(true), 
       distance_computation("max"), 
       color_changes(true), 
-      perform_icp(true),
-      initial_transform({1, 0, 0, 0,
-                         0, 1, 0, 0,
-                         0, 0, 1, 0,
-                         0, 0, 0, 1}) {}
+      perform_icp(true) {}
 
     // Distance value used as maximum for voxel coloring in visualization.
     double max_vis_dist;
@@ -61,8 +57,6 @@ public:
     std::string distance_computation;
     // Color changes point cloud based on appearing/disappearing.
     bool color_changes;
-    // Initial transform for icp.
-    std::vector<double> initial_transform;
     // Perform ICP or not.
     bool perform_icp;
   };
@@ -79,9 +73,6 @@ private:
   // Parameters.
   CompareParams params_;
 
-  /// \brief Gets point color based on distance for use in visualization.
-  pcl::RGB getColorFromDistance(const double& dist, const double& max_dist = 1);
-
   /// \brief Get changes with distances from comp voxel to closest base voxel.
   double compareForward(const ContainerBase& compare_container,
                         std::list<Eigen::Vector3d>* observed_points,
@@ -97,7 +88,8 @@ private:
                          std::list<Eigen::Vector3d>* unobserved_points);
 
   /// \brief Get transform to align octomaps.
-  void getTransformFromICP(const ContainerBase& compare_container);
+  void getTransformFromICP(const ContainerBase& compare_container,
+                           const Eigen::Matrix<double, 4, 4>& T_initial);
 
 public:
   /// \brief Constructor which reads octomaps from specified files.
@@ -109,7 +101,9 @@ public:
 
   /// \brief Compare both loaded point clouds and return colored point cloud.
   template<typename ContainerType>
-  CompareResult compare(const ContainerType& compare_container);
+  CompareResult compare(const ContainerType& compare_container,
+                        const Eigen::Matrix<double, 4, 4>& T_initial =
+                            Eigen::MatrixXd::Identity(4, 4));
 
   /// \brief Get changes between octomaps using the result from a comparison.
   void getChanges(const CompareResult& result,

@@ -16,16 +16,18 @@ OctomapCompare::OctomapCompare(const std::shared_ptr<octomap::OcTree>& base_tree
     base_octree_(base_tree), params_(params) {}
 
 template<typename ContainerType>
-OctomapCompare::CompareResult OctomapCompare::compare(const ContainerType &compare_container) {
+OctomapCompare::CompareResult OctomapCompare::compare(const ContainerType &compare_container,
+                                                      const Eigen::Matrix<double, 4, 4>& T_initial) {
   CompareResult result;
   std::cout << "Comparing...\n";
 
   // Do ICP.
-  getTransformFromICP(compare_container);
+  getTransformFromICP(compare_container, T_initial);
 
   std::list<Eigen::Vector3d> comp_observed_points;
   std::list<double> comp_distances;
   std::list<Eigen::Vector3d> unobserved_points;
+  std::cout << "Comparing forward...\n";
   double max_dist = compareForward(compare_container,
                                    &comp_observed_points,
                                    &comp_distances,
@@ -33,12 +35,13 @@ OctomapCompare::CompareResult OctomapCompare::compare(const ContainerType &compa
 
   std::list<Eigen::Vector3d> base_observed_points;
   std::list<double> base_distances;
+  std::cout << "Comparing backward...\n";
   max_dist = compareBackward<ContainerType>(compare_container,
                                             max_dist,
                                             &base_observed_points,
                                             &base_distances,
                                             &unobserved_points);
-
+  std::cout << "Filling matrices\n";
   // Fill result matrices.
   const size_t base_size = base_observed_points.size();
   const size_t comp_size = comp_observed_points.size();
@@ -73,8 +76,12 @@ OctomapCompare::CompareResult OctomapCompare::compare(const ContainerType &compa
   return result;
 }
 
-template OctomapCompare::CompareResult OctomapCompare::compare(const OctomapContainer& compare_container);
-template OctomapCompare::CompareResult OctomapCompare::compare(const PointCloudContainer& compare_container);
+template OctomapCompare::CompareResult OctomapCompare::compare(
+    const OctomapContainer& compare_container,
+    const Eigen::Matrix<double, 4, 4>& T_initial);
+template OctomapCompare::CompareResult OctomapCompare::compare(
+    const PointCloudContainer& compare_container,
+    const Eigen::Matrix<double, 4, 4>& T_initial);
 
 double OctomapCompare::compareForward(const ContainerBase& compare_container,
                                       std::list<Eigen::Vector3d>* observed_points,
@@ -166,20 +173,24 @@ double OctomapCompare::compareBackward(
     Eigen::Vector3d query_point(base_octree_.Points().col(i));
     Eigen::Vector3d query_point_comp = T_comp_base_ * query_point;
 
-    OctomapContainer::KNNResult knn_result =
-        compare_container.findKNN(query_point_comp, params_.k_nearest_neighbor);
-    distances->push_back(getCompareDist(knn_result.distances, params_.distance_computation));
-    if (distances->back() > max_dist) max_dist = knn_result.distances(0);
+    if (compare_container.isObserved(query_point_comp)) {
+      OctomapContainer::KNNResult knn_result =
+          compare_container.findKNN(query_point_comp, params_.k_nearest_neighbor);
+      observed_points->push_back(query_point);
+      distances->push_back(getCompareDist(knn_result.distances, params_.distance_computation));
+      if (distances->back() > max_dist) max_dist = knn_result.distances(0);
+    }
+    else {
+      unobserved_points->push_back(query_point);
+    }
   }
 
   return max_dist;
 }
 
-void OctomapCompare::getTransformFromICP(const ContainerBase& compare_container) {
+void OctomapCompare::getTransformFromICP(const ContainerBase& compare_container,
+                                         const Eigen::Matrix<double, 4, 4>& T_initial) {
   // Get initial transform.
-  Eigen::Matrix<double, 4, 4> T_initial_transpose(params_.initial_transform.data());
-  Eigen::Matrix<double, 4, 4> T_initial;
-  T_initial = T_initial_transpose.transpose();
   std::cout << "Initial transform is\n" << T_initial << "\n";
   // Initialize ICP.
   PM::ICP icp;
@@ -190,9 +201,7 @@ void OctomapCompare::getTransformFromICP(const ContainerBase& compare_container)
   PM::TransformationParameters T(T_initial);
   if (params_.perform_icp) T = icp(comp_points, base_points, T);
   // Get transform.
-  Eigen::Matrix<double, 4, 4> T_eigen;
-  T_eigen = T;
-  T_base_comp_.matrix() = T_eigen*T_initial;
+  T_base_comp_.matrix() = T;
   if (params_.perform_icp) std::cout << "Done ICPeeing, transform is\n"
                                      << T_base_comp_.matrix() << "\n";
   T_comp_base_ = T_base_comp_.inverse();
@@ -245,7 +254,8 @@ void OctomapCompare::compareResultToPointCloud(const CompareResult& result,
                                                pcl::PointCloud<pcl::PointXYZRGB>* distance_point_cloud) {
   CHECK_NOTNULL(distance_point_cloud)->clear();
   distance_point_cloud->header.frame_id = "map";
-  const double max_dist = sqrt(result.max_dist);
+  double max_dist = sqrt(result.max_dist);
+  if (params_.max_vis_dist > 0) max_dist = params_.max_vis_dist;
   for (unsigned int i = 0; i < result.base_observed_points.cols(); ++i) {
     pcl::RGB color = getColorFromDistance(sqrt(result.base_distances(i)), max_dist);
     pcl::PointXYZRGB pointrgb(color.r, color.g, color.b);
@@ -274,41 +284,4 @@ void OctomapCompare::compareResultToPointCloud(const CompareResult& result,
   }
 }
 
-pcl::RGB OctomapCompare::getColorFromDistance(const double& dist, const double& max_dist) {
-  const double first = max_dist / 4;
-  const double second = max_dist / 2;
-  const double third = first + second;
-  pcl::RGB color;
-  if (dist > max_dist) {
-    color.r = 255;
-    color.g = 0;
-    color.b = 0;
-  }
-  else if (dist > third) {
-    color.r = 255;
-    color.g = (max_dist - dist)/first*255;
-    color.b = 0;
-  }
-  else if (dist > second) {
-    color.r = (dist - second)/first*255;
-    color.g = 255;
-    color.b = 0;
-  }
-  else if (dist > first) {
-    color.r = 0;
-    color.g = 255;
-    color.b = (second - dist)/first*255;
-  }
-  else if (dist >= 0) {
-    color.r = 0;
-    color.g = dist/first * 255;
-    color.b = 255;
-  }
-  else {
-    // Negative distance. Used to mark previously unobserved points.
-    color.r = 180;
-    color.g = 180;
-    color.b = 180;
-  }
-  return color;
-}
+

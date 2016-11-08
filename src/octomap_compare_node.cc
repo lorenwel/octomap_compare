@@ -25,7 +25,6 @@ int main(int argc, char** argv) {
   nh.param("show_unobserved_voxels", params.show_unobserved_voxels, params.show_unobserved_voxels);
   nh.param("distance_computation", params.distance_computation, params.distance_computation);
   nh.param("color_changes", params.color_changes, params.color_changes);
-  nh.param("initial_transform", params.initial_transform, params.initial_transform);
   nh.param("perform_icp", params.perform_icp, params.perform_icp);
   std::string base_file, comp_file;
   if (!nh.getParam("base_file", base_file)) {
@@ -36,13 +35,19 @@ int main(int argc, char** argv) {
     ROS_ERROR("Did not find comp file parameter");
     return EXIT_FAILURE;
   }
+  std::vector<double> T_initial_vec;
+  nh.param("initial_transform", T_initial_vec, {1, 0, 0, 0,
+                                                0, 1, 0, 0,
+                                                0, 0, 1, 0,
+                                                0, 0, 0, 1});
+  Eigen::Matrix<double, 4, 4, Eigen::RowMajor> T_initial(T_initial_vec.data());
 
   OctomapCompare compare(base_file, params);
 
   auto start = std::chrono::high_resolution_clock::now();
 
   OctomapContainer comp_octree(comp_file);
-  OctomapCompare::CompareResult result = compare.compare(comp_octree);
+  OctomapCompare::CompareResult result = compare.compare(comp_octree, T_initial);
 
   auto end = std::chrono::high_resolution_clock::now();
   std::chrono::duration<double> duration = end - start;

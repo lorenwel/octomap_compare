@@ -7,6 +7,7 @@
 #include <pointmatcher_ros/point_cloud.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <tf/transform_listener.h>
+#include <tf_conversions/tf_eigen.h>
 
 #include "octomap_compare/octomap_compare.h"
 #include "octomap_compare/octomap_compare_utils.h"
@@ -23,23 +24,31 @@ class Online {
   OctomapCompare::CompareParams params_;
 
   void cloudCallback(const sensor_msgs::PointCloud2& cloud) {
-    sensor_msgs::PointCloud2 map_cloud;
-    if (pcl_ros::transformPointCloud("map", cloud, map_cloud, tf_listener_)) {
+    tf::StampedTransform T_map_robot;
+    try {
+      tf_listener_.lookupTransform("map",
+                                   cloud.header.frame_id,
+                                   cloud.header.stamp,
+                                   T_map_robot);
+      Eigen::Affine3d T_initial;
+      tf::transformTFToEigen(T_map_robot, T_initial);
       PM::DataPoints intermediate_points =
-          PointMatcher_ros::rosMsgToPointMatcherCloud<double>(map_cloud);
+          PointMatcher_ros::rosMsgToPointMatcherCloud<double>(cloud);
       Eigen::MatrixXd points = pointMatcherToMatrix3dEigen(intermediate_points);
 
       auto start = std::chrono::high_resolution_clock::now();
 
       PointCloudContainer comp_octree(points);
-      OctomapCompare::CompareResult result = octomap_compare_.compare(comp_octree);
+      OctomapCompare::CompareResult result = octomap_compare_.compare(comp_octree,
+                                                                      T_initial.matrix());
 
       auto end = std::chrono::high_resolution_clock::now();
       std::chrono::duration<double> duration = end - start;
 
       Eigen::Matrix<double, 3, Eigen::Dynamic> changes_appear, changes_disappear;
       Eigen::VectorXi cluster_appear, cluster_disappear;
-      octomap_compare_.getChanges(result, &changes_appear, &changes_disappear, &cluster_appear, &cluster_disappear);
+      octomap_compare_.getChanges(result, &changes_appear, &changes_disappear,
+                                          &cluster_appear, &cluster_disappear);
 
       pcl::PointCloud<pcl::PointXYZRGB> changes_point_cloud;
       changesToPointCloud(changes_appear, changes_disappear,
@@ -54,8 +63,9 @@ class Online {
       changes_pub_.publish(changes_point_cloud);
       std::cout << "Comparing took " << duration.count() << " seconds\n";
     }
-    else {
-      ROS_WARN("Could not transform point cloud");
+    catch (tf::TransformException& e) {
+      ROS_ERROR("Could not transform point cloud: %s", e.what());
+      ROS_WARN_ONCE("This is expected for the first call back");
     }
   }
 
@@ -91,9 +101,8 @@ int main(int argc, char** argv) {
   nh.param("show_unobserved_voxels", params.show_unobserved_voxels, params.show_unobserved_voxels);
   nh.param("distance_computation", params.distance_computation, params.distance_computation);
   nh.param("color_changes", params.color_changes, params.color_changes);
-  nh.param("initial_transform", params.initial_transform, params.initial_transform);
   nh.param("perform_icp", params.perform_icp, params.perform_icp);
-  std::string base_file, comp_file;
+  std::string base_file;
   if (!nh.getParam("base_file", base_file)) {
     ROS_ERROR("Did not find base file parameter");
     return EXIT_FAILURE;
