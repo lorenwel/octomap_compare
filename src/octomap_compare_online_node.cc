@@ -24,6 +24,10 @@ class Online {
   OctomapCompare::CompareParams params_;
 
   void cloudCallback(const sensor_msgs::PointCloud2& cloud) {
+    if (cloud.width * cloud.height == 0) {
+      ROS_WARN("Received empty cloud");
+      return;
+    }
     tf::StampedTransform T_map_robot;
     try {
       tf_listener_.lookupTransform("map",
