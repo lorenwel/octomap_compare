@@ -12,9 +12,6 @@ distance_computation: "max"   # options are "min", "mean", "max", applied to res
 eps: 0.3  # distance for other points to be considered neighbors
 min_pts: 20 # number of points in neighborhood to be considered a cluster base point
 # visualization parameter
-show_unobserved_voxels: true  # show unobserved voxels/points in distance heat map
-color_changes: false  # color changes based on them appearing/disappearing
-max_vis_dist: 0.0 # max distance for heat map color. Setting 0 uses maximum distance of distance computation
-# octomap files
-base_file: '/home/lorenwel/data/octomaps/powerplant/delta_5_1.bt' # base octomap to compare to
-comp_file: '/home/lorenwel/data/octomaps/powerplant/delta_5_2.bt' # comparison octomap for offline comparison
+show_unobserved_voxels: false  # show unobserved voxels/points in distance heat map
+color_changes: true  # color changes based on them appearing/disappearing
+max_vis_dist: 1.0 # max distance for heat map color. Setting 0 uses maximum distance of distance computation

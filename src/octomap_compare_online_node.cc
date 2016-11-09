@@ -73,9 +73,10 @@ public:
 
   Online(const ros::NodeHandle& nh,
          const std::string& base_file,
+         const std::string& cloud_topic,
          const OctomapCompare::CompareParams& params) :
          nh_(nh), octomap_compare_(base_file, params), params_(params) {
-    cloud_sub_ = nh_.subscribe("/dynamic_point_cloud", 1, &Online::cloudCallback, this);
+    cloud_sub_ = nh_.subscribe(cloud_topic, 1, &Online::cloudCallback, this);
     changes_pub_ = nh_.advertise<pcl::PointCloud<pcl::PointXYZ>>("changes", 1, true);
     color_pub_ = nh_.advertise<pcl::PointCloud<pcl::PointXYZ>>("heat_map", 1, true);
 
@@ -107,8 +108,12 @@ int main(int argc, char** argv) {
     ROS_ERROR("Did not find base file parameter");
     return EXIT_FAILURE;
   }
+  std::string cloud_topic;
+  if (!nh.getParam("cloud_topic", cloud_topic)) {
+    ROS_WARN("Did not find cloud_topic parameter. Set to \"/dynamic_point_cloud\"");
+  }
 
-  Online online(nh, base_file, params);
+  Online online(nh, base_file, cloud_topic, params);
 
   ros::spin();
 }

@@ -6,10 +6,10 @@
 #include <cmath>
 #include <limits>
 
-static unsigned int kNPhi = 360;
-static unsigned int kNRho = 180;
-static const double phi_index_factor = kNPhi / (2.0*M_PI);
-static const double rho_index_factor = kNRho / M_PI;
+static unsigned int kNPhi = 720;
+static unsigned int kNRho = 360;
+static const double kPhiIndexFactor = kNPhi / (2.0*M_PI);
+static const double kRhoIndexFactor = kNRho / M_PI;
 
 class PointCloudContainer : public ContainerBase {
 
@@ -35,8 +35,8 @@ class PointCloudContainer : public ContainerBase {
   }
 
   std::pair<unsigned int, unsigned int> index(const SphericalPoint& point) const {
-    const unsigned int phi_index = (point.phi + M_PI) * phi_index_factor;
-    const unsigned int rho_index = point.rho* rho_index_factor;
+    const unsigned int phi_index = (point.phi + M_PI) * kPhiIndexFactor;
+    const unsigned int rho_index = point.rho* kRhoIndexFactor;
     return std::make_pair(phi_index, rho_index);
   }
 

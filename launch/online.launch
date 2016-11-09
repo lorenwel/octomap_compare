@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<launch>
+
+  <!-- Rviz visualization config file path -->
+  <!-- <arg name="rviz_config_file" value="$(find octomap_compare)/launch/rviz_config.rviz"/> -->
+
+  <!-- rviz node -->
+  <!-- <node name="visualizer" pkg="rviz" type="rviz" output="screen" args="-d $(arg rviz_config_file)" /> -->
+
+  <!-- Launch ground segmentation -->
+  <include file="$(find ground_segmentation)/launch/segmentation.launch" />
+
+  <!-- Octomap compare node -->
+  <node name="octomap_compare" pkg="octomap_compare" type="octomap_compare_online_node" output="screen">
+    <rosparam command="load" file="$(find octomap_compare)/launch/compare_params.yaml"/>
+    <param name="cloud_topic" value="/ground_segmentation/obstacle_cloud" />
+    <param name="base_file" value="/home/lorenwel/data/octomaps/powerplant/delta_5_1.bt" />
+  </node>
+
+</launch>
