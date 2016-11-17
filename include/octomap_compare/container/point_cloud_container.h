@@ -6,15 +6,15 @@
 #include <cmath>
 #include <limits>
 
-static unsigned int kNPhi = 720;
-static unsigned int kNRho = 360;
+static unsigned int kNPhi = 2880;
+static unsigned int kNTheta = 2880;
 static const double kPhiIndexFactor = kNPhi / (2.0*M_PI);
-static const double kRhoIndexFactor = kNRho / M_PI;
+static const double kThetaIndexFactor = kNTheta / M_PI;
 
 class PointCloudContainer : public ContainerBase {
 
   struct SphericalPoint {
-    double r2, phi, rho;
+    double r2, phi, theta;
   };
 
   double max_x;
@@ -30,14 +30,14 @@ class PointCloudContainer : public ContainerBase {
     SphericalPoint spherical;
     spherical.r2 = point.squaredNorm();
     spherical.phi = atan2(point(1), point(0));
-    spherical.rho = atan2(sqrt(point(0) * point(0) + point(1) * point(1)), point(2));
+    spherical.theta = atan2(sqrt(point(0) * point(0) + point(1) * point(1)), point(2));
     return spherical;
   }
 
   std::pair<unsigned int, unsigned int> index(const SphericalPoint& point) const {
     const unsigned int phi_index = (point.phi + M_PI) * kPhiIndexFactor;
-    const unsigned int rho_index = point.rho* kRhoIndexFactor;
-    return std::make_pair(phi_index, rho_index);
+    const unsigned int theta_index = point.theta* kThetaIndexFactor;
+    return std::make_pair(phi_index, theta_index);
   }
 
   void processCloud() {
@@ -59,7 +59,7 @@ class PointCloudContainer : public ContainerBase {
 
  public:
   PointCloudContainer(const Eigen::MatrixXd& points) :
-      segmentation_(kNPhi, std::vector<double>(kNRho, 0)) {
+      segmentation_(kNPhi, std::vector<double>(kNTheta, 0)) {
     occupied_points_ = points;
     // Create kd tree.
     kd_tree_ = std::unique_ptr<Nabo::NNSearchD>(
