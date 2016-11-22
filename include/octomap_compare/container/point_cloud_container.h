@@ -11,7 +11,7 @@ static unsigned int kNTheta = 1440;
 static const double kPhiIndexFactor = kNPhi / (2.0*M_PI);
 static const double kThetaIndexFactor = kNTheta / M_PI;
 
-static const unsigned int kNStdDev = 0;
+static const unsigned int kNStdDev = 2;
 
 typedef Eigen::Vector3d SphericalVector;
 
@@ -31,9 +31,12 @@ class PointCloudContainer : public ContainerBase {
   Eigen::Matrix3d std_dev_;
   Eigen::Matrix3d std_dev_inverse_;
 
+  Eigen::Matrix3d spherical_transform_;
+
   std::vector<std::vector<double>> segmentation_;
 
-  SphericalPoint cartesianToSpherical(const Eigen::Vector3d& point) const {
+  SphericalPoint cartesianToSpherical(const Eigen::Vector3d& point_base) const {
+    const Eigen::Vector3d point(spherical_transform_ * point_base);
     SphericalPoint spherical;
     spherical.r2 = point.squaredNorm();
     spherical.r = sqrt(spherical.r2);
@@ -90,9 +93,12 @@ class PointCloudContainer : public ContainerBase {
   }
 
  public:
-  PointCloudContainer(const Eigen::MatrixXd& points, const Eigen::Matrix3d& std_dev) :
+  PointCloudContainer(const Eigen::MatrixXd& points,
+                      const Eigen::Matrix3d& spherical_transform,
+                      const Eigen::Matrix3d& std_dev) :
       segmentation_(kNPhi, std::vector<double>(kNTheta, 0)),
-      std_dev_(std_dev) {
+      std_dev_(std_dev),
+      spherical_transform_(spherical_transform) {
     std_dev_inverse_ = std_dev_.inverse();
     occupied_points_ = points;
     spherical_points_.resize(3, occupied_points_.cols());

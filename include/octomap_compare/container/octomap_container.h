@@ -27,8 +27,10 @@ public:
 
   void setSpherical(const Eigen::MatrixXd& spherical_points) {
     spherical_points_ = spherical_points;
-    kd_tree_ = std::unique_ptr<Nabo::NNSearchD>(
-        Nabo::NNSearchD::createKDTreeLinearHeap(spherical_points_));
+    if (spherical_points.cols() > 0) {
+      kd_tree_ = std::unique_ptr<Nabo::NNSearchD>(
+          Nabo::NNSearchD::createKDTreeLinearHeap(spherical_points_));
+    }
   }
 
   /// \brief Operator overload to allow access to underlying octree.

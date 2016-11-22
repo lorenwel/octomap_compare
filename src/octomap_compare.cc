@@ -115,7 +115,7 @@ OctomapCompare::CompareResult OctomapCompare::compare(const PointCloudContainer 
 }
 
 visualization_msgs::Marker OctomapCompare::getText(const Eigen::Vector3d& point_base, const unsigned int& id) {
-  Eigen::Vector3d point (T_comp_base_ * point_base);
+  Eigen::Vector3d point (params_.spherical_transform * T_comp_base_ * point_base);
   visualization_msgs::Marker marker;
   marker.header.frame_id = "map";
   marker.header.stamp = ros::Time::now();
@@ -142,7 +142,7 @@ visualization_msgs::Marker OctomapCompare::getText(const Eigen::Vector3d& point_
 }
 
 visualization_msgs::Marker OctomapCompare::getEllipsis(const Eigen::Vector3d& point_base, const unsigned int& id) {
-  Eigen::Vector3d point(T_comp_base_ * point_base);
+  Eigen::Vector3d point(params_.spherical_transform * T_comp_base_ * point_base);
 
   visualization_msgs::Marker marker;
   marker.header.frame_id = "map";
@@ -290,8 +290,9 @@ double OctomapCompare::compareBackward(
 
     OctomapContainer::KNNResult knn_result =
         compare_container.findKNN(query_point, params_.k_nearest_neighbor);
-    distances->push_back(getCompareDist(knn_result.distances, params_.distance_computation));
-    if (distances->back() > max_dist) max_dist = knn_result.distances(0);
+    distances->push_back(0);
+//    distances->push_back(getCompareDist(knn_result.distances, params_.distance_computation));
+//    if (distances->back() > max_dist) max_dist = knn_result.distances(0);
   }
 
   return max_dist;

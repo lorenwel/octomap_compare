@@ -62,6 +62,8 @@ public:
     bool perform_icp;
     // Standard deviation of laser.
     Eigen::Matrix3d std_dev;
+    // Transform from sensor frame to spherical coordinate frame.
+    Eigen::Matrix3d spherical_transform;
   };
 
 private:

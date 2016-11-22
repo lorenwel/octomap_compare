@@ -44,7 +44,7 @@ class Online {
       auto start = std::chrono::high_resolution_clock::now();
 
       visualization_msgs::MarkerArray array;
-      PointCloudContainer comp_octree(points, params_.std_dev);
+      PointCloudContainer comp_octree(points, params_.spherical_transform, params_.std_dev);
       OctomapCompare::CompareResult result = octomap_compare_.compare(comp_octree,
                                                                       T_initial.matrix(),
                                                                       &array);
@@ -112,6 +112,9 @@ int main(int argc, char** argv) {
   nh.param("distance_computation", params.distance_computation, params.distance_computation);
   nh.param("color_changes", params.color_changes, params.color_changes);
   nh.param("perform_icp", params.perform_icp, params.perform_icp);
+  std::vector<double> temp_transform({1, 0, 0, 0, 1, 0, 0, 0, 1});
+  nh.param("spherical_transform", temp_transform, temp_transform);
+  params.spherical_transform = Eigen::Matrix<double, 3, 3, Eigen::RowMajor>(temp_transform.data());
   std::string base_file;
   if (!nh.getParam("base_file", base_file)) {
     ROS_ERROR("Did not find base file parameter");
