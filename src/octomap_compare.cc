@@ -15,28 +15,51 @@ OctomapCompare::OctomapCompare(const std::shared_ptr<octomap::OcTree>& base_tree
                                const CompareParams &params) :
     base_octree_(base_tree), params_(params) {}
 
-template<typename ContainerType>
-OctomapCompare::CompareResult OctomapCompare::compare(const ContainerType &compare_container,
-                                                      const Eigen::Matrix<double, 4, 4>& T_initial) {
+OctomapCompare::CompareResult OctomapCompare::compare(const PointCloudContainer &compare_container,
+                                                      const Eigen::Matrix<double, 4, 4>& T_initial,
+                                                      visualization_msgs::MarkerArray* array) {
   CompareResult result;
   std::cout << "Comparing...\n";
 
   // Do ICP.
   getTransformFromICP(compare_container, T_initial);
 
+  std::list<Eigen::Vector3d> base_observed_points;
+  std::list<Eigen::Vector3d> unobserved_points;
+
+  // Get Octomap spherical points.
+  const size_t n_base_points = base_octree_.Points().cols();
+  std::vector<SphericalVector> base_spherical;
+  for (unsigned int i = 0; i < n_base_points; ++i) {
+    const Eigen::Vector3d map_point(base_octree_.Points().col(i));
+    const Eigen::Vector3d query_point(T_comp_base_ * map_point);
+    SphericalVector spherical_point;
+    if (compare_container.isObserved(query_point, &spherical_point)) {
+      base_spherical.push_back(spherical_point);
+      base_observed_points.push_back(map_point);
+    }
+    else {
+      unobserved_points.push_back(map_point);
+    }
+  }
+  Eigen::MatrixXd base_spherical_eigen(3, base_spherical.size());
+  const size_t n_spherical = base_spherical.size();
+  for (unsigned int i = 0; i < n_spherical; ++i) {
+    base_spherical_eigen.col(i) = base_spherical[i];
+  }
+  base_octree_.setSpherical(base_spherical_eigen);
+
   std::list<Eigen::Vector3d> comp_observed_points;
   std::list<double> comp_distances;
-  std::list<Eigen::Vector3d> unobserved_points;
   std::cout << "Comparing forward...\n";
   double max_dist = compareForward(compare_container,
                                    &comp_observed_points,
                                    &comp_distances,
                                    &unobserved_points);
 
-  std::list<Eigen::Vector3d> base_observed_points;
   std::list<double> base_distances;
   std::cout << "Comparing backward...\n";
-  max_dist = compareBackward<ContainerType>(compare_container,
+  max_dist = compareBackward(compare_container,
                                             max_dist,
                                             &base_observed_points,
                                             &base_distances,
@@ -73,15 +96,106 @@ OctomapCompare::CompareResult OctomapCompare::compare(const ContainerType &compa
   std::cout << "There are a combined " << unobserved_size << " unobserved voxels.\n";
   std::cout << "max dist: " << sqrt(max_dist) << "\n";
 
+  static const unsigned int n_ellipses = 50;
+  if (array != NULL) {
+    std::srand(std::time(0));
+    for (size_t i = 0; i < n_ellipses; ++i) {
+      const unsigned int ind = std::rand()%result.comp_observed_points.cols();
+      if ((T_comp_base_ * result.comp_observed_points.col(ind)).squaredNorm() < 4) {
+        --i;
+      }
+      else {
+        array->markers.push_back(getEllipsis(result.comp_observed_points.col(ind), i));
+        array->markers.push_back(getText(result.comp_observed_points.col(ind), i + n_ellipses));
+      }
+    }
+  }
+
   return result;
 }
 
-template OctomapCompare::CompareResult OctomapCompare::compare(
-    const OctomapContainer& compare_container,
-    const Eigen::Matrix<double, 4, 4>& T_initial);
-template OctomapCompare::CompareResult OctomapCompare::compare(
-    const PointCloudContainer& compare_container,
-    const Eigen::Matrix<double, 4, 4>& T_initial);
+visualization_msgs::Marker OctomapCompare::getText(const Eigen::Vector3d& point_base, const unsigned int& id) {
+  Eigen::Vector3d point (T_comp_base_ * point_base);
+  visualization_msgs::Marker marker;
+  marker.header.frame_id = "map";
+  marker.header.stamp = ros::Time::now();
+  marker.id = id;
+  marker.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
+  marker.action = visualization_msgs::Marker::ADD;
+  marker.pose.orientation.x = 0.0;
+  marker.pose.orientation.y = 0.0;
+  marker.pose.orientation.z = 0.0;
+  marker.pose.orientation.w = 1.0;
+  marker.color.a = 0.6; // Don't forget to set the alpha!
+  marker.color.r = 1.0;
+  marker.color.g = 1.0;
+  marker.color.b = 1.0;
+  marker.scale.z = 0.1;
+  const double d = point.norm();
+  const double phi = atan2(point(1), point(0))/M_PI*180;
+  const double theta = atan2(sqrt(point(0) * point(0) + point(1) * point(1)), point(2))/M_PI*180;
+  marker.text = "Phi: " + std::to_string(phi) + " Theta: " + std::to_string(theta) + " d: " + std::to_string(d) + "\n";
+  marker.pose.position.x = point_base.x();
+  marker.pose.position.y = point_base.y();
+  marker.pose.position.z = point_base.z();
+  return marker;
+}
+
+visualization_msgs::Marker OctomapCompare::getEllipsis(const Eigen::Vector3d& point_base, const unsigned int& id) {
+  Eigen::Vector3d point(T_comp_base_ * point_base);
+
+  visualization_msgs::Marker marker;
+  marker.header.frame_id = "map";
+  marker.header.stamp = ros::Time::now();
+  marker.id = id;
+  marker.type = visualization_msgs::Marker::SPHERE;
+  marker.action = visualization_msgs::Marker::ADD;
+  marker.pose.orientation.x = 0.0;
+  marker.pose.orientation.y = 0.0;
+  marker.pose.orientation.z = 0.0;
+  marker.pose.orientation.w = 1.0;
+  marker.color.a = 0.6; // Don't forget to set the alpha!
+  marker.color.r = 1.0;
+  marker.color.g = 0.0;
+  marker.color.b = 1.0;
+
+  const double d = point.norm();
+  const double phi = atan2(point(1), point(0));
+  const double theta = atan2(sqrt(point(0) * point(0) + point(1) * point(1)), point(2));
+
+  static const double dev_d = 0.03;
+  static const double dev_phi = 0.035;
+  static const double dev_theta = 0.004;
+  Eigen::AngleAxisd first(-phi, Eigen::Vector3d::UnitZ());
+  Eigen::AngleAxisd second(-theta, Eigen::Vector3d::UnitY());
+
+  Eigen::Vector3d scales(
+      d * dev_theta + 0.075/2,
+      d * sin(theta) * dev_phi + 0.075/2,
+      dev_d + 0.075/2);
+
+  scales = second * first * scales;
+
+  scales = T_base_comp_.rotation() * scales;
+
+  marker.scale.x = std::fabs(scales.x());
+  marker.scale.y = std::fabs(scales.y());
+  marker.scale.z = std::fabs(scales.z());
+
+  marker.pose.position.x = point_base.x();
+  marker.pose.position.y = point_base.y();
+  marker.pose.position.z = point_base.z();
+  return marker;
+}
+
+//template OctomapCompare::CompareResult OctomapCompare::compare(
+//    const OctomapContainer& compare_container,
+//    const Eigen::Matrix<double, 4, 4>& T_initial,
+//visualization_msgs::MarkerArray* array);
+//template OctomapCompare::CompareResult OctomapCompare::compare(
+//    const PointCloudContainer& compare_container,
+//    const Eigen::Matrix<double, 4, 4>& T_initial,
+//visualization_msgs::MarkerArray* array);
 
 double OctomapCompare::compareForward(const ContainerBase& compare_container,
                                       std::list<Eigen::Vector3d>* observed_points,
@@ -94,10 +208,11 @@ double OctomapCompare::compareForward(const ContainerBase& compare_container,
   // Do the comparison.
   const unsigned int n_points = compare_container.Points().cols();
   for (unsigned int i = 0; i < n_points; ++i) {
-    Eigen::Vector3d query_point(compare_container.Points().col(i));
-    query_point = T_base_comp_ * query_point;
+    const Eigen::Vector3d point(compare_container.Points().col(i));
+    const Eigen::Vector3d query_point = T_base_comp_ * point;
     octomap::OcTreeNode* base_node;  // Keep node to check occupancy.
-    if (base_octree_.isObserved(query_point, &base_node)) {
+    if (point.squaredNorm() > 2.25 &&
+        base_octree_.isObserved(query_point, &base_node)) {
       observed_points->push_back(query_point);
       // If base tree node is occupied distance is very low -> set 0.
       if (params_.k_nearest_neighbor == 1 &&
@@ -106,8 +221,9 @@ double OctomapCompare::compareForward(const ContainerBase& compare_container,
         distances->push_back(0);
       }
       else {
+        SphericalVector spherical = compare_container.SphericalPoints().col(i);
         OctomapContainer::KNNResult knn_result =
-            base_octree_.findKNN(query_point, params_.k_nearest_neighbor);
+            base_octree_.findKNN(spherical, params_.k_nearest_neighbor);
         distances->push_back(getCompareDist(knn_result.distances, params_.distance_computation));
         if (distances->back() > max_dist) max_dist = distances->back();
       }
@@ -119,45 +235,45 @@ double OctomapCompare::compareForward(const ContainerBase& compare_container,
   return max_dist;
 }
 
-template<>
-double OctomapCompare::compareBackward(
-    const OctomapContainer& compare_container,
-    double max_dist,
-    std::list<Eigen::Vector3d>* observed_points,
-    std::list<double>* distances,
-    std::list<Eigen::Vector3d>* unobserved_points) {
-  CHECK_NOTNULL(observed_points);
-  CHECK_NOTNULL(distances);
-  CHECK_NOTNULL(unobserved_points);
-  // Compare base octree to comp octree.
-  const unsigned int n_points = base_octree_.Points().cols();
-  for (unsigned int i = 0; i < n_points; ++i) {
-    Eigen::Vector3d query_point(base_octree_.Points().col(i));
-    Eigen::Vector3d query_point_comp = T_comp_base_ * query_point;
-    octomap::OcTreeNode* comp_node;
-    if (compare_container.isObserved(query_point_comp, &comp_node)) {
-      observed_points->push_back(query_point);
-      // Check if comp node is also occupied.
-      if (params_.k_nearest_neighbor == 1 &&
-          comp_node &&
-          compare_container->isNodeOccupied(comp_node)) {
-        distances->push_back(0);
-      }
-      else {
-        OctomapContainer::KNNResult knn_result =
-            compare_container.findKNN(query_point_comp, params_.k_nearest_neighbor);
-        distances->push_back(getCompareDist(knn_result.distances, params_.distance_computation));
-        if (distances->back() > max_dist) max_dist = knn_result.distances(0);
-      }
-    }
-    else {
-      unobserved_points->push_back(query_point);
-    }
-  }
-  return max_dist;
-}
+//template<>
+//double OctomapCompare::compareBackward(
+//    const OctomapContainer& compare_container,
+//    double max_dist,
+//    std::list<Eigen::Vector3d>* observed_points,
+//    std::list<double>* distances,
+//    std::list<Eigen::Vector3d>* unobserved_points) {
+//  CHECK_NOTNULL(observed_points);
+//  CHECK_NOTNULL(distances);
+//  CHECK_NOTNULL(unobserved_points);
+//  // Compare base octree to comp octree.
+//  const unsigned int n_points = base_octree_.Points().cols();
+//  for (unsigned int i = 0; i < n_points; ++i) {
+//    Eigen::Vector3d query_point(base_octree_.Points().col(i));
+//    Eigen::Vector3d query_point_comp = T_comp_base_ * query_point;
+//    octomap::OcTreeNode* comp_node;
+//    if (compare_container.isObserved(query_point_comp, &comp_node)) {
+//      observed_points->push_back(query_point);
+//      // Check if comp node is also occupied.
+//      if (params_.k_nearest_neighbor == 1 &&
+//          comp_node &&
+//          compare_container->isNodeOccupied(comp_node)) {
+//        distances->push_back(0);
+//      }
+//      else {
+//        OctomapContainer::KNNResult knn_result =
+//            compare_container.findKNN(query_point_comp, params_.k_nearest_neighbor);
+//        distances->push_back(getCompareDist(knn_result.distances, params_.distance_computation));
+//        if (distances->back() > max_dist) max_dist = knn_result.distances(0);
+//      }
+//    }
+//    else {
+//      unobserved_points->push_back(query_point);
+//    }
+//  }
+//  return max_dist;
+//}
 
-template<>
+//template<>
 double OctomapCompare::compareBackward(
     const PointCloudContainer& compare_container,
     double max_dist,
@@ -168,21 +284,14 @@ double OctomapCompare::compareBackward(
   CHECK_NOTNULL(distances);
   CHECK_NOTNULL(unobserved_points);
   // Compare base octree to comp octree.
-  const unsigned int n_points = base_octree_.Points().cols();
+  const unsigned int n_points = base_octree_.SphericalPoints().cols();
   for (unsigned int i = 0; i < n_points; ++i) {
-    Eigen::Vector3d query_point(base_octree_.Points().col(i));
-    Eigen::Vector3d query_point_comp = T_comp_base_ * query_point;
+    Eigen::Vector3d query_point(base_octree_.SphericalPoints().col(i));
 
-    if (compare_container.isObserved(query_point_comp)) {
-      OctomapContainer::KNNResult knn_result =
-          compare_container.findKNN(query_point_comp, params_.k_nearest_neighbor);
-      observed_points->push_back(query_point);
-      distances->push_back(getCompareDist(knn_result.distances, params_.distance_computation));
-      if (distances->back() > max_dist) max_dist = knn_result.distances(0);
-    }
-    else {
-      unobserved_points->push_back(query_point);
-    }
+    OctomapContainer::KNNResult knn_result =
+        compare_container.findKNN(query_point, params_.k_nearest_neighbor);
+    distances->push_back(getCompareDist(knn_result.distances, params_.distance_computation));
+    if (distances->back() > max_dist) max_dist = knn_result.distances(0);
   }
 
   return max_dist;

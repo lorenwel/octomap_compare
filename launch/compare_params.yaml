@@ -7,11 +7,15 @@ initial_transform: [1, 0, 0, 0,
 # dynamics candidate parameter
 distance_threshold: 0.4 # distance threshold for a point to be considered change candidate
 k_nearest_neighbor: 8 # number of neighbors to use for distance computation
-distance_computation: "max"   # options are "min", "mean", "max", applied to result of knn search
+distance_computation: "min"   # options are "min", "mean", "max", applied to result of knn search
 # clustering parameter
 eps: 0.3  # distance for other points to be considered neighbors
 min_pts: 20 # number of points in neighborhood to be considered a cluster base point
 # visualization parameter
 show_unobserved_voxels: false  # show unobserved voxels/points in distance heat map
-color_changes: true  # color changes based on them appearing/disappearing
-max_vis_dist: 1.0 # max distance for heat map color. Setting 0 uses maximum distance of distance computation
+color_changes: false  # color changes based on them appearing/disappearing
+max_vis_dist: 0.0 # max distance for heat map color. Setting 0 uses maximum distance of distance computation
+# mahalanobis distance
+std_dev: [0.035, 0, 0,
+          0, 0.004, 0,
+          0, 0, 0.065]  # phi, theta, distance

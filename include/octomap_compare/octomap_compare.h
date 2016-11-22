@@ -9,6 +9,7 @@
 #include <octomap/OcTree.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
+#include <visualization_msgs/MarkerArray.h>
 
 #include "octomap_compare/octomap_compare_utils.h"
 #include "octomap_compare/container/octomap_container.h"
@@ -59,6 +60,8 @@ public:
     bool color_changes;
     // Perform ICP or not.
     bool perform_icp;
+    // Standard deviation of laser.
+    Eigen::Matrix3d std_dev;
   };
 
 private:
@@ -80,8 +83,8 @@ private:
                         std::list<Eigen::Vector3d>* unobserved_points);
 
   /// \brief Get changes with distances from base voxel to closest comp voxel.
-  template<typename ContainerType>
-  double compareBackward(const ContainerType& compare_container,
+//  template<typename ContainerType>
+  double compareBackward(const PointCloudContainer& compare_container,
                          double max_dist,
                          std::list<Eigen::Vector3d>* observed_points,
                          std::list<double>* distances,
@@ -90,6 +93,10 @@ private:
   /// \brief Get transform to align octomaps.
   void getTransformFromICP(const ContainerBase& compare_container,
                            const Eigen::Matrix<double, 4, 4>& T_initial);
+
+  visualization_msgs::Marker getEllipsis(const Eigen::Vector3d& point_base, const unsigned int& id);
+
+  visualization_msgs::Marker getText(const Eigen::Vector3d& point_base, const unsigned int& id);
 
 public:
   /// \brief Constructor which reads octomaps from specified files.
@@ -100,10 +107,10 @@ public:
                  const CompareParams& params = CompareParams());
 
   /// \brief Compare both loaded point clouds and return colored point cloud.
-  template<typename ContainerType>
-  CompareResult compare(const ContainerType& compare_container,
+  CompareResult compare(const PointCloudContainer& compare_container,
                         const Eigen::Matrix<double, 4, 4>& T_initial =
-                            Eigen::MatrixXd::Identity(4, 4));
+                            Eigen::MatrixXd::Identity(4, 4),
+                        visualization_msgs::MarkerArray* array = NULL);
 
   /// \brief Get changes between octomaps using the result from a comparison.
   void getChanges(const CompareResult& result,

@@ -18,6 +18,7 @@ class Online {
   ros::Subscriber cloud_sub_;
   ros::Publisher changes_pub_;
   ros::Publisher color_pub_;
+  ros::Publisher marker_pub_;
   tf::TransformListener tf_listener_;
 
   OctomapCompare octomap_compare_;
@@ -42,9 +43,11 @@ class Online {
 
       auto start = std::chrono::high_resolution_clock::now();
 
-      PointCloudContainer comp_octree(points);
+      visualization_msgs::MarkerArray array;
+      PointCloudContainer comp_octree(points, params_.std_dev);
       OctomapCompare::CompareResult result = octomap_compare_.compare(comp_octree,
-                                                                      T_initial.matrix());
+                                                                      T_initial.matrix(),
+                                                                      &array);
 
       auto end = std::chrono::high_resolution_clock::now();
       std::chrono::duration<double> duration = end - start;
@@ -65,6 +68,7 @@ class Online {
 
       color_pub_.publish(distance_point_cloud);
       changes_pub_.publish(changes_point_cloud);
+      marker_pub_.publish(array);
       std::cout << "Comparing took " << duration.count() << " seconds\n";
     }
     catch (tf::TransformException& e) {
@@ -83,6 +87,7 @@ public:
     cloud_sub_ = nh_.subscribe(cloud_topic, 1, &Online::cloudCallback, this);
     changes_pub_ = nh_.advertise<pcl::PointCloud<pcl::PointXYZ>>("changes", 1, true);
     color_pub_ = nh_.advertise<pcl::PointCloud<pcl::PointXYZ>>("heat_map", 1, true);
+    marker_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("ellipses", 1, true);
 
   }
 
@@ -115,6 +120,14 @@ int main(int argc, char** argv) {
   std::string cloud_topic;
   if (!nh.getParam("cloud_topic", cloud_topic)) {
     ROS_WARN("Did not find cloud_topic parameter. Set to \"/dynamic_point_cloud\"");
+  }
+  std::vector<double> std_dev_vec;
+  if (!nh.getParam("std_dev", std_dev_vec)) {
+    ROS_ERROR("No standard deviation specified");
+    return EXIT_FAILURE;
+  }
+  else {
+    params.std_dev = Eigen::Matrix<double, 3, 3, Eigen::RowMajor>(std_dev_vec.data());
   }
 
   Online online(nh, base_file, cloud_topic, params);

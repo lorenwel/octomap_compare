@@ -28,6 +28,8 @@ protected:
   // Eigen Matrix with occupied points.
   Eigen::MatrixXd occupied_points_;
 
+  Eigen::MatrixXd spherical_points_;
+
   // kd-tree for nearest neighbor search.
   std::unique_ptr<Nabo::NNSearchD> kd_tree_;
 
@@ -51,6 +53,11 @@ public:
   /// \brief Access to point cloud matrix.
   inline const Eigen::MatrixXd& Points() const {
     return occupied_points_;
+  }
+
+  /// \brief Access to point cloud matrix.
+  inline const Eigen::MatrixXd& SphericalPoints() const {
+    return spherical_points_;
   }
 
 };

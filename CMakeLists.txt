@@ -13,9 +13,9 @@ link_directories(${PCL_LIBRARY_DIRS})
 
 cs_add_library(${PROJECT_NAME} src/octomap_compare.cc src/octomap_container.cc)
 
-add_executable(octomap_compare_node src/octomap_compare_node.cc)
+#add_executable(octomap_compare_node src/octomap_compare_node.cc)
 add_executable(octomap_compare_online_node src/octomap_compare_online_node.cc)
-target_link_libraries(octomap_compare_node ${catkin_LIBRARIES} ${PROJECT_NAME} ${PCL_LIBRARIES})
+#target_link_libraries(octomap_compare_node ${catkin_LIBRARIES} ${PROJECT_NAME} ${PCL_LIBRARIES})
 target_link_libraries(octomap_compare_online_node ${catkin_LIBRARIES} ${PROJECT_NAME} ${PCL_LIBRARIES})
 
 #add_doxygen(NOT_AUTOMATIC)
