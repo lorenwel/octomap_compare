@@ -5,6 +5,7 @@
 #include <thread>
 
 #include <dbscan/dbscan.h>
+#include <hdbscan.h>
 #include <pcl/conversions.h>
 
 OctomapCompare::OctomapCompare(const std::string& base_file,
@@ -353,11 +354,20 @@ void OctomapCompare::getChanges(const CompareResult& result,
   Eigen::MatrixXd transpose_appear(output_appear->transpose());
   Eigen::MatrixXd transpose_disappear(output_disappear->transpose());
   // DBSCAN filtering.
-  Dbscan dbscan_appear(transpose_appear, params_.eps, params_.min_pts);
-  Dbscan dbscan_disappear(transpose_disappear, params_.eps, params_.min_pts);
-  dbscan_appear.cluster(cluster_appear);
-  dbscan_disappear.cluster(cluster_disappear);
-
+  if (params_.clustering_algorithm == "dbscan") {
+    Dbscan dbscan_appear(transpose_appear, params_.eps, params_.min_pts);
+    Dbscan dbscan_disappear(transpose_disappear, params_.eps, params_.min_pts);
+    dbscan_appear.cluster(cluster_appear);
+    dbscan_disappear.cluster(cluster_disappear);
+  }
+  else if (params_.clustering_algorithm == "hdbscan") {
+    Hdbscan hdbscan(params_.min_pts);
+    if (transpose_appear.rows() > 0) hdbscan.cluster(transpose_appear, cluster_appear);
+    if (transpose_disappear.rows() > 0) hdbscan.cluster(transpose_disappear, cluster_disappear);
+  }
+  else {
+    std::cerr << "Unknown clustering algorithm: \"" << params_.clustering_algorithm << "\"\n";
+  }
 }
 
 void OctomapCompare::compareResultToPointCloud(const CompareResult& result,

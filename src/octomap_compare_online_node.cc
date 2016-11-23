@@ -112,6 +112,7 @@ int main(int argc, char** argv) {
   nh.param("distance_computation", params.distance_computation, params.distance_computation);
   nh.param("color_changes", params.color_changes, params.color_changes);
   nh.param("perform_icp", params.perform_icp, params.perform_icp);
+  nh.param("clustering_algorithm", params.clustering_algorithm, params.clustering_algorithm);
   std::vector<double> temp_transform({1, 0, 0, 0, 1, 0, 0, 0, 1});
   nh.param("spherical_transform", temp_transform, temp_transform);
   params.spherical_transform = Eigen::Matrix<double, 3, 3, Eigen::RowMajor>(temp_transform.data());

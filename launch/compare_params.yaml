@@ -9,8 +9,9 @@ distance_threshold: 7 # distance threshold for a point to be considered change c
 k_nearest_neighbor: 8 # number of neighbors to use for distance computation
 distance_computation: "min"   # options are "min", "mean", "max", applied to result of knn search
 # clustering parameter
-eps: 0.3  # distance for other points to be considered neighbors
-min_pts: 20 # number of points in neighborhood to be considered a cluster base point
+clustering_algorithm: 'hdbscan'  # valid are 'dbscan' and 'hdbscan'
+min_pts: 20 # number of points in neighborhood to be considered a cluster base point. 'dbscan' and 'hdbscan'
+eps: 0.3  # distance for other points to be considered neighbors. 'dbscan' only
 # visualization parameter
 show_unobserved_voxels: false  # show unobserved voxels/points in distance heat map
 color_changes: false  # color changes based on them appearing/disappearing

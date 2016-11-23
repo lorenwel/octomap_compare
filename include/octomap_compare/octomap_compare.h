@@ -56,6 +56,8 @@ public:
     bool show_unobserved_voxels;
     // Distance metric to use when computing distance from knn search.
     std::string distance_computation;
+    // Which clustering algorithm to use.
+    std::string clustering_algorithm;
     // Color changes point cloud based on appearing/disappearing.
     bool color_changes;
     // Perform ICP or not.
