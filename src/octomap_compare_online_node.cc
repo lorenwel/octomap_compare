@@ -1,6 +1,7 @@
 #include <chrono>
 
 #include <Eigen/Dense>
+#include <eigen_conversions/eigen_msg.h>
 #include <ros/ros.h>
 #include <pcl_ros/point_cloud.h>
 #include <pcl_ros/transforms.h>
@@ -16,6 +17,7 @@ class Online {
 
   ros::NodeHandle nh_;
   ros::Subscriber cloud_sub_;
+  ros::Subscriber transform_sub_;
   ros::Publisher changes_pub_;
   ros::Publisher color_pub_;
   ros::Publisher marker_pub_;
@@ -24,57 +26,74 @@ class Online {
   OctomapCompare octomap_compare_;
   OctomapCompare::CompareParams params_;
 
+  Eigen::Affine3d relocalization_transform_;
+
+  bool first_relocalization_received_;
+
   void cloudCallback(const sensor_msgs::PointCloud2& cloud) {
     if (cloud.width * cloud.height == 0) {
       ROS_WARN("Received empty cloud");
       return;
     }
     tf::StampedTransform T_map_robot;
-    try {
-      tf_listener_.lookupTransform("map",
-                                   cloud.header.frame_id,
-                                   cloud.header.stamp,
-                                   T_map_robot);
-      Eigen::Affine3d T_initial;
-      tf::transformTFToEigen(T_map_robot, T_initial);
-      PM::DataPoints intermediate_points =
-          PointMatcher_ros::rosMsgToPointMatcherCloud<double>(cloud);
-      Eigen::MatrixXd points = pointMatcherToMatrix3dEigen(intermediate_points);
+    if (first_relocalization_received_) {
+      try {
+        tf_listener_.lookupTransform("map",
+                                     cloud.header.frame_id,
+                                     cloud.header.stamp,
+                                     T_map_robot);
+        Eigen::Affine3d T_initial;
+        tf::transformTFToEigen(T_map_robot, T_initial);
+        T_initial = relocalization_transform_ * T_initial;
 
-      auto start = std::chrono::high_resolution_clock::now();
+        PM::DataPoints intermediate_points =
+            PointMatcher_ros::rosMsgToPointMatcherCloud<double>(cloud);
+        Eigen::MatrixXd points = pointMatcherToMatrix3dEigen(intermediate_points);
 
-      visualization_msgs::MarkerArray array;
-      PointCloudContainer comp_octree(points, params_.spherical_transform, params_.std_dev);
-      OctomapCompare::CompareResult result = octomap_compare_.compare(comp_octree,
-                                                                      T_initial.matrix(),
-                                                                      &array);
+        auto start = std::chrono::high_resolution_clock::now();
 
-      auto end = std::chrono::high_resolution_clock::now();
-      std::chrono::duration<double> duration = end - start;
+        visualization_msgs::MarkerArray array;
+        PointCloudContainer comp_octree(points, params_.spherical_transform, params_.std_dev);
+        OctomapCompare::CompareResult result = octomap_compare_.compare(comp_octree,
+                                                                        T_initial.matrix(),
+                                                                        &array);
 
-      Eigen::Matrix<double, 3, Eigen::Dynamic> changes_appear, changes_disappear;
-      Eigen::VectorXi cluster_appear, cluster_disappear;
-      octomap_compare_.getChanges(result, &changes_appear, &changes_disappear,
-                                          &cluster_appear, &cluster_disappear);
+        auto end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> duration = end - start;
 
-      pcl::PointCloud<pcl::PointXYZRGB> changes_point_cloud;
-      changesToPointCloud(changes_appear, changes_disappear,
-                          cluster_appear, cluster_disappear,
-                          params_.color_changes,
-                          &changes_point_cloud);
+        Eigen::Matrix<double, 3, Eigen::Dynamic> changes_appear, changes_disappear;
+        Eigen::VectorXi cluster_appear, cluster_disappear;
+        octomap_compare_.getChanges(result, &changes_appear, &changes_disappear,
+                                            &cluster_appear, &cluster_disappear);
 
-      pcl::PointCloud<pcl::PointXYZRGB> distance_point_cloud;
-      octomap_compare_.compareResultToPointCloud(result, &distance_point_cloud);
+        pcl::PointCloud<pcl::PointXYZRGB> changes_point_cloud;
+        changesToPointCloud(changes_appear, changes_disappear,
+                            cluster_appear, cluster_disappear,
+                            params_.color_changes,
+                            &changes_point_cloud);
 
-      color_pub_.publish(distance_point_cloud);
-      changes_pub_.publish(changes_point_cloud);
-      marker_pub_.publish(array);
-      std::cout << "Comparing took " << duration.count() << " seconds\n";
+        pcl::PointCloud<pcl::PointXYZRGB> distance_point_cloud;
+        octomap_compare_.compareResultToPointCloud(result, &distance_point_cloud);
+
+        color_pub_.publish(distance_point_cloud);
+        changes_pub_.publish(changes_point_cloud);
+        marker_pub_.publish(array);
+        std::cout << "Comparing took " << duration.count() << " seconds\n";
+      }
+      catch (tf::TransformException& e) {
+        ROS_ERROR("Could not transform point cloud: %s", e.what());
+        ROS_WARN_ONCE("This is expected for the first call back");
+      }
     }
-    catch (tf::TransformException& e) {
-      ROS_ERROR("Could not transform point cloud: %s", e.what());
-      ROS_WARN_ONCE("This is expected for the first call back");
+    else {
+      ROS_INFO_ONCE("Waiting to receive first relocalization transform...");
     }
+  }
+
+  void transformCallback(const geometry_msgs::Transform& transform) {
+    ROS_INFO_ONCE("Received relocalization transform!");
+    first_relocalization_received_ = true;
+    tf::transformMsgToEigen(transform, relocalization_transform_);
   }
 
 public:
@@ -89,6 +108,17 @@ public:
     color_pub_ = nh_.advertise<pcl::PointCloud<pcl::PointXYZ>>("heat_map", 1, true);
     marker_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("ellipses", 1, true);
 
+    relocalization_transform_ = Eigen::Affine3d::Identity();
+    bool use_relocalization = false;
+    nh_.param("use_relocalization", use_relocalization, use_relocalization);
+    if (use_relocalization) {
+      first_relocalization_received_ = false;
+      transform_sub_ =
+          nh_.subscribe("/segmatch/last_transformation", 1, &Online::transformCallback, this);
+    }
+    else {
+      first_relocalization_received_ = true;
+    }
   }
 
 };

@@ -76,9 +76,9 @@ void OctomapContainer::processTree() {
   if (index != voxel_count) std::cerr << "End index does not match voxel count\n";
   else std::cout << "Successfully created point matrix\n";
 
-  // Create kd tree.
-  kd_tree_ = std::unique_ptr<Nabo::NNSearchD>(
-      Nabo::NNSearchD::createKDTreeLinearHeap(occupied_points_));
-  std::cout << "Created kd-tree\n";
+//  // Create kd tree.
+//  kd_tree_ = std::unique_ptr<Nabo::NNSearchD>(
+//      Nabo::NNSearchD::createKDTreeLinearHeap(occupied_points_));
+//  std::cout << "Created kd-tree\n";
 
 }

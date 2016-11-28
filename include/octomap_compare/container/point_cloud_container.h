@@ -6,12 +6,12 @@
 #include <cmath>
 #include <limits>
 
-static unsigned int kNPhi = 2880;
-static unsigned int kNTheta = 1440;
-static const double kPhiIndexFactor = kNPhi / (2.0*M_PI);
-static const double kThetaIndexFactor = kNTheta / M_PI;
+static constexpr unsigned int kNPhi = 2880;
+static constexpr unsigned int kNTheta = 1440;
+static constexpr double kPhiIndexFactor = kNPhi / (2.0*M_PI);
+static constexpr double kThetaIndexFactor = kNTheta / M_PI;
 
-static const unsigned int kNStdDev = 2;
+static constexpr unsigned int kNStdDev = 2;
 
 typedef Eigen::Vector3d SphericalVector;
 
@@ -48,6 +48,12 @@ class PointCloudContainer : public ContainerBase {
   std::pair<unsigned int, unsigned int> index(const SphericalPoint& point) const {
     const unsigned int phi_index = (point.phi + M_PI) * kPhiIndexFactor;
     const unsigned int theta_index = point.theta* kThetaIndexFactor;
+    return std::make_pair(phi_index, theta_index);
+  }
+
+  std::pair<unsigned int, unsigned int> index(const SphericalVector& point) const {
+    const unsigned int phi_index = (point(0) + M_PI) * kPhiIndexFactor;
+    const unsigned int theta_index = point(1) * kThetaIndexFactor;
     return std::make_pair(phi_index, theta_index);
   }
 
@@ -118,7 +124,7 @@ class PointCloudContainer : public ContainerBase {
             point(2) > min_z && point(2) < max_z);
   }
 
-  bool isObserved(const Eigen::Vector3d& point, SphericalVector* spherical_coordinates) const {
+  bool isApproxObserved(const Eigen::Vector3d& point, SphericalVector* spherical_coordinates) const {
     // Check BBox first so we can void a lot of atan2.
     if (!isInBBox(point)) return false;
     // Check spherical coordinates.
@@ -132,6 +138,16 @@ class PointCloudContainer : public ContainerBase {
     const double r2 = point.squaredNorm();
     return (segmentation_[ind.first][ind.second] > r2);
   }
+
+  bool isObserved(const SphericalVector& spherical_point) const {
+    auto ind = index(spherical_point);
+    ind.first = (ind.first + kNPhi) % kNPhi;
+    ind.second = (ind.second + kNTheta) % kNTheta;
+    const double r2 = spherical_point(2) * spherical_point(2);
+    return (segmentation_[ind.first][ind.second] > r2);
+  }
+
+
 
 };
 

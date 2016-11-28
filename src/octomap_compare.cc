@@ -35,7 +35,7 @@ OctomapCompare::CompareResult OctomapCompare::compare(const PointCloudContainer 
     const Eigen::Vector3d map_point(base_octree_.Points().col(i));
     const Eigen::Vector3d query_point(T_comp_base_ * map_point);
     SphericalVector spherical_point;
-    if (compare_container.isObserved(query_point, &spherical_point)) {
+    if (compare_container.isApproxObserved(query_point, &spherical_point)) {
       base_spherical.push_back(spherical_point);
       base_observed_points.push_back(map_point);
     }
@@ -287,13 +287,17 @@ double OctomapCompare::compareBackward(
   // Compare base octree to comp octree.
   const unsigned int n_points = base_octree_.SphericalPoints().cols();
   for (unsigned int i = 0; i < n_points; ++i) {
-    Eigen::Vector3d query_point(base_octree_.SphericalPoints().col(i));
+    SphericalVector query_point(base_octree_.SphericalPoints().col(i));
+    if (compare_container.isObserved(query_point)) {
 
-    OctomapContainer::KNNResult knn_result =
-        compare_container.findKNN(query_point, params_.k_nearest_neighbor);
-    distances->push_back(0);
-//    distances->push_back(getCompareDist(knn_result.distances, params_.distance_computation));
-//    if (distances->back() > max_dist) max_dist = knn_result.distances(0);
+      OctomapContainer::KNNResult knn_result =
+          compare_container.findKNN(query_point, params_.k_nearest_neighbor);
+      distances->push_back(getCompareDist(knn_result.distances, params_.distance_computation));
+      if (distances->back() > max_dist) max_dist = knn_result.distances(0);
+    }
+    else {
+      distances->push_back(0);
+    }
   }
 
   return max_dist;
@@ -353,17 +357,20 @@ void OctomapCompare::getChanges(const CompareResult& result,
   // directly passing output->transpose().
   Eigen::MatrixXd transpose_appear(output_appear->transpose());
   Eigen::MatrixXd transpose_disappear(output_disappear->transpose());
-  // DBSCAN filtering.
+  // Cluster.
+  cluster(transpose_appear, cluster_appear);
+  cluster(transpose_disappear, cluster_disappear);
+}
+
+void OctomapCompare::cluster(const Eigen::Matrix<double, Eigen::Dynamic, 3> points,
+                             Eigen::VectorXi* indices) {
   if (params_.clustering_algorithm == "dbscan") {
-    Dbscan dbscan_appear(transpose_appear, params_.eps, params_.min_pts);
-    Dbscan dbscan_disappear(transpose_disappear, params_.eps, params_.min_pts);
-    dbscan_appear.cluster(cluster_appear);
-    dbscan_disappear.cluster(cluster_disappear);
+    Dbscan dbscan_appear(points, params_.eps, params_.min_pts);
+    dbscan_appear.cluster(indices);
   }
   else if (params_.clustering_algorithm == "hdbscan") {
     Hdbscan hdbscan(params_.min_pts);
-    if (transpose_appear.rows() > 0) hdbscan.cluster(transpose_appear, cluster_appear);
-    if (transpose_disappear.rows() > 0) hdbscan.cluster(transpose_disappear, cluster_disappear);
+    if (points.rows() > 0) hdbscan.cluster(points, indices);
   }
   else {
     std::cerr << "Unknown clustering algorithm: \"" << params_.clustering_algorithm << "\"\n";

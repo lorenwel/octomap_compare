@@ -98,6 +98,9 @@ private:
   void getTransformFromICP(const ContainerBase& compare_container,
                            const Eigen::Matrix<double, 4, 4>& T_initial);
 
+  /// \brief Cluster the points.
+  void cluster(const Eigen::Matrix<double, Eigen::Dynamic, 3> points, Eigen::VectorXi* indices);
+
   visualization_msgs::Marker getEllipsis(const Eigen::Vector3d& point_base, const unsigned int& id);
 
   visualization_msgs::Marker getText(const Eigen::Vector3d& point_base, const unsigned int& id);
