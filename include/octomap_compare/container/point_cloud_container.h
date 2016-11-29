@@ -13,12 +13,10 @@ static constexpr double kThetaIndexFactor = kNTheta / M_PI;
 
 static constexpr unsigned int kNStdDev = 2;
 
-typedef Eigen::Vector3d SphericalVector;
-
 class PointCloudContainer : public ContainerBase {
 
-  struct SphericalPoint {
-    double r, r2, phi, theta;
+  struct SphericalPointR2 {
+    double r2, phi, theta;
   };
 
   double max_x;
@@ -35,17 +33,25 @@ class PointCloudContainer : public ContainerBase {
 
   std::vector<std::vector<double>> segmentation_;
 
-  SphericalPoint cartesianToSpherical(const Eigen::Vector3d& point_base) const {
+  Matrix3xDynamic transformed_points_;
+
+  SphericalPointR2 cartesianToSphericalR2(const Eigen::Vector3d& point_base) const {
     const Eigen::Vector3d point(spherical_transform_ * point_base);
-    SphericalPoint spherical;
+    SphericalPointR2 spherical;
     spherical.r2 = point.squaredNorm();
-    spherical.r = sqrt(spherical.r2);
     spherical.phi = atan2(point(1), point(0));
     spherical.theta = atan2(sqrt(point(0) * point(0) + point(1) * point(1)), point(2));
     return spherical;
   }
 
-  std::pair<unsigned int, unsigned int> index(const SphericalPoint& point) const {
+  Eigen::Vector3d sphericalToCartesian(const SphericalVector& spherical) const {
+    const double x = spherical(2) * sin(spherical(1)) * cos(spherical(0));
+    const double y = spherical(2) * sin(spherical(1)) * sin(spherical(0));
+    const double z = spherical(2) * cos(spherical(1));
+    return spherical_transform_.transpose() * Eigen::Vector3d(x, y, z);
+  }
+
+  std::pair<unsigned int, unsigned int> index(const SphericalPointR2& point) const {
     const unsigned int phi_index = (point.phi + M_PI) * kPhiIndexFactor;
     const unsigned int theta_index = point.theta* kThetaIndexFactor;
     return std::make_pair(phi_index, theta_index);
@@ -71,10 +77,10 @@ class PointCloudContainer : public ContainerBase {
       if (cur_point(2) > max_z) max_z = cur_point(2);
       else if (cur_point(2) < min_z) min_z = cur_point(2);
 
-      const SphericalPoint spherical = cartesianToSpherical(cur_point);
-      spherical_points_.col(i) = Eigen::Vector3d(spherical.phi,
+      const SphericalPointR2 spherical = cartesianToSphericalR2(cur_point);
+      spherical_points_.col(i) = SphericalVector(spherical.phi,
                                                  spherical.theta,
-                                                 spherical.r);
+                                                 sqrt(spherical.r2));
       const auto ind = index(spherical);
       // Add kNPhi/Theta to avoid negative indices so we can do modulo for circular index.
       const std::pair<unsigned int, unsigned int> phi_bound(ind.first - phi_offset + kNPhi,
@@ -99,7 +105,7 @@ class PointCloudContainer : public ContainerBase {
   }
 
  public:
-  PointCloudContainer(const Eigen::MatrixXd& points,
+  PointCloudContainer(const Matrix3xDynamic& points,
                       const Eigen::Matrix3d& spherical_transform,
                       const Eigen::Matrix3d& std_dev) :
       segmentation_(kNPhi, std::vector<double>(kNTheta, 0)),
@@ -108,14 +114,24 @@ class PointCloudContainer : public ContainerBase {
     std_dev_inverse_ = std_dev_.inverse();
     occupied_points_ = points;
     spherical_points_.resize(3, occupied_points_.cols());
+    transformed_points_.resize(3, occupied_points_.cols());
 
     processCloud();
 
     // Create kd tree.
-    kd_tree_ = std::unique_ptr<Nabo::NNSearchD>(
-        Nabo::NNSearchD::createKDTreeLinearHeap(spherical_points_));
+    kd_tree_ = std::unique_ptr<NNSearch3d>(
+                   NNSearch3d::createKDTreeLinearHeap(spherical_points_));
     std::cout << "Created kd-tree\n";
 
+  }
+
+  SphericalVector cartesianToSpherical(const Eigen::Vector3d& point) const {
+    const Eigen::Vector3d cartesian(spherical_transform_ * point);
+    const double phi = atan2(cartesian(1), cartesian(0));
+    const double theta = atan2(sqrt(cartesian(0) * cartesian(0) + cartesian(1) * cartesian(1)),
+                               cartesian(2));
+    const double r = cartesian.norm();
+    return SphericalVector(phi, theta, r);
   }
 
   inline bool isInBBox(const Eigen::Vector3d& point) const {
@@ -128,13 +144,10 @@ class PointCloudContainer : public ContainerBase {
     // Check BBox first so we can void a lot of atan2.
     if (!isInBBox(point)) return false;
     // Check spherical coordinates.
-    const SphericalPoint spherical = cartesianToSpherical(point);
-    const SphericalVector out(spherical.phi,
-                              spherical.theta,
-                              spherical.r);
+    const SphericalVector out = cartesianToSpherical(point);
     *spherical_coordinates = std_dev_inverse_ * out;
 
-    const auto ind = index(spherical);
+    const auto ind = index(out);
     const double r2 = point.squaredNorm();
     return (segmentation_[ind.first][ind.second] > r2);
   }
@@ -147,6 +160,13 @@ class PointCloudContainer : public ContainerBase {
     return (segmentation_[ind.first][ind.second] > r2);
   }
 
+  inline Matrix3xDynamic& TransformedPoints() {
+    return transformed_points_;
+  }
+
+  inline const Matrix3xDynamic& TransformedPoints() const {
+    return transformed_points_;
+  }
 
 
 };

@@ -20,15 +20,6 @@ class OctomapCompare {
 public:
   typedef std::unordered_map<octomap::OcTreeKey, double, octomap::OcTreeKey::KeyHash> KeyToDistMap;
 
-  struct CompareResult {
-    Eigen::Matrix<double, 3, Eigen::Dynamic> base_observed_points;
-    Eigen::Matrix<double, 3, Eigen::Dynamic> comp_observed_points;
-    Eigen::VectorXd base_distances;
-    Eigen::VectorXd comp_distances;
-    Eigen::Matrix<double, 3, Eigen::Dynamic> unobserved_points;
-    double max_dist;
-  };
-
   struct CompareParams {
     CompareParams() :
       max_vis_dist(8),
@@ -37,6 +28,7 @@ public:
       min_pts(10),
       k_nearest_neighbor(1),
       show_unobserved_voxels(true), 
+      show_outliers(true),
       distance_computation("max"), 
       color_changes(true), 
       perform_icp(true) {}
@@ -60,6 +52,8 @@ public:
     std::string clustering_algorithm;
     // Color changes point cloud based on appearing/disappearing.
     bool color_changes;
+    // Show outlier after clustering.
+    bool show_outliers;
     // Perform ICP or not.
     bool perform_icp;
     // Standard deviation of laser.
@@ -77,22 +71,28 @@ private:
   Eigen::Affine3d T_base_comp_;
   Eigen::Affine3d T_comp_base_;
 
+  std::list<std::pair<size_t, double>> base_index_to_distances_;
+  std::list<std::pair<size_t, int>> base_index_to_cluster_;
+  std::list<size_t> base_unobserved_points_;
+
+  std::list<std::pair<size_t, double>> comp_index_to_distances_;
+  std::list<std::pair<size_t, int>> comp_index_to_cluster_;
+  std::list<size_t> comp_unobserved_points_;
+
+  double base_max_dist_;
+  double comp_max_dist_;
+
+  const PointCloudContainer* compare_container_;
+
   // Parameters.
   CompareParams params_;
 
   /// \brief Get changes with distances from comp voxel to closest base voxel.
-  double compareForward(const ContainerBase& compare_container,
-                        std::list<Eigen::Vector3d>* observed_points,
-                        std::list<double>* distances,
-                        std::list<Eigen::Vector3d>* unobserved_points);
+  double compareForward(PointCloudContainer& compare_container);
 
   /// \brief Get changes with distances from base voxel to closest comp voxel.
 //  template<typename ContainerType>
-  double compareBackward(const PointCloudContainer& compare_container,
-                         double max_dist,
-                         std::list<Eigen::Vector3d>* observed_points,
-                         std::list<double>* distances,
-                         std::list<Eigen::Vector3d>* unobserved_points);
+  double compareBackward(const PointCloudContainer& compare_container);
 
   /// \brief Get transform to align octomaps.
   void getTransformFromICP(const ContainerBase& compare_container,
@@ -101,9 +101,11 @@ private:
   /// \brief Cluster the points.
   void cluster(const Eigen::Matrix<double, Eigen::Dynamic, 3> points, Eigen::VectorXi* indices);
 
-  visualization_msgs::Marker getEllipsis(const Eigen::Vector3d& point_base, const unsigned int& id);
+  /// \brief Reset all member variables.
+  void Reset();
 
-  visualization_msgs::Marker getText(const Eigen::Vector3d& point_base, const unsigned int& id);
+  /// \brief Get changes between octomaps using the result from a comparison.
+  void computeChanges(const PointCloudContainer &compare_container);
 
 public:
   /// \brief Constructor which reads octomaps from specified files.
@@ -114,21 +116,18 @@ public:
                  const CompareParams& params = CompareParams());
 
   /// \brief Compare both loaded point clouds and return colored point cloud.
-  CompareResult compare(const PointCloudContainer& compare_container,
-                        const Eigen::Matrix<double, 4, 4>& T_initial =
-                            Eigen::MatrixXd::Identity(4, 4),
-                        visualization_msgs::MarkerArray* array = NULL);
+  void compare(PointCloudContainer& compare_container,
+               const Eigen::Matrix<double, 4, 4>& T_initial =
+                     Eigen::MatrixXd::Identity(4, 4));
 
-  /// \brief Get changes between octomaps using the result from a comparison.
-  void getChanges(const CompareResult& result,
-                  Eigen::Matrix<double, 3, Eigen::Dynamic>* output_appear,
-                  Eigen::Matrix<double, 3, Eigen::Dynamic>* output_disappear,
-                  Eigen::VectorXi* cluster_appear, 
-                  Eigen::VectorXi* cluster_disappear);
+  /// \brief Save result of clustering to file for evaluation in MATLAB.
+  void saveClusterResultToFile(const std::string& filename);
+
+  /// \brief Get the changes as point cloud. Color indicates cluster.
+  void getChanges(pcl::PointCloud<pcl::PointXYZRGB>* cloud);
 
   /// \brief Get a point cloud visualizing the comparison result.
-  void compareResultToPointCloud(const CompareResult& result,
-                                 pcl::PointCloud<pcl::PointXYZRGB>* distance_point_cloud);
+  void getDistanceHeatMap(pcl::PointCloud<pcl::PointXYZRGB>* distance_point_cloud);
 };
 
 #endif // OCTOMAP_COMPARE_H_

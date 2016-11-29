@@ -5,19 +5,17 @@
 
 #include <nabo/nabo.h>
 
+#include "octomap_compare/octomap_compare_utils.h"
 
 class ContainerBase {
 public:
   struct KNNResult {
-    // 3D position of closest neighbors.
-    Eigen::Matrix<double, 3, Eigen::Dynamic> points;
     // Distances of closest neighbors.
     Eigen::VectorXd distances;
     // Indices of closest points.
     Eigen::VectorXi indices;
 
     KNNResult(const unsigned int& n_neighbors) {
-      points.resize(3, n_neighbors);
       distances.resize(n_neighbors);
       indices.resize(n_neighbors);
     }
@@ -26,12 +24,12 @@ public:
 protected:
 
   // Eigen Matrix with occupied points.
-  Eigen::MatrixXd occupied_points_;
+  Matrix3xDynamic occupied_points_;
 
-  Eigen::MatrixXd spherical_points_;
+  Matrix3xDynamic spherical_points_;
 
   // kd-tree for nearest neighbor search.
-  std::unique_ptr<Nabo::NNSearchD> kd_tree_;
+  std::unique_ptr<NNSearch3d> kd_tree_;
 
 public:
 
@@ -40,23 +38,17 @@ public:
     // Query.
     KNNResult result(n_neighbors);
     kd_tree_->knn(point, result.indices, result.distances,
-                  n_neighbors, 0, Nabo::NNSearchD::SORT_RESULTS);
-
-    //Fill QueryResult.
-    for (unsigned int i = 0; i < n_neighbors; ++i) {
-      const int cur_index = result.indices(i);
-      result.points.col(i) = occupied_points_.col(cur_index);
-    }
+                  n_neighbors, 0, NNSearch3d::SORT_RESULTS);
     return result;
   }
 
   /// \brief Access to point cloud matrix.
-  inline const Eigen::MatrixXd& Points() const {
+  inline const Matrix3xDynamic& Points() const {
     return occupied_points_;
   }
 
-  /// \brief Access to point cloud matrix.
-  inline const Eigen::MatrixXd& SphericalPoints() const {
+  /// \brief Access to point cloud matrix. ATTENTION! THESE ARE SCALED WITH THE INVERSE OF STD_DEV
+  inline const Matrix3xDynamic& SphericalPoints() const {
     return spherical_points_;
   }
 
