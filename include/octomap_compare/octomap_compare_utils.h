@@ -16,6 +16,7 @@ typedef PointMatcher<double> PM;
 typedef Eigen::Matrix<double, 3, Eigen::Dynamic> Matrix3xDynamic;
 typedef Nabo::NearestNeighbourSearch<double, Matrix3xDynamic> NNSearch3d;
 typedef Eigen::Vector3d SphericalVector;
+typedef std::vector<std::pair<int, Eigen::Vector3d>> ClusterCentroidVector;
 
 static double getCompareDist(const Eigen::VectorXd& distances,
                              const std::string& dist_metric = "max") {

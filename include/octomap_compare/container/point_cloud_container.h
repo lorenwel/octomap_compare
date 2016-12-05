@@ -6,6 +6,11 @@
 #include <cmath>
 #include <limits>
 
+#include <sm/timing/Timer.hpp>
+
+//typedef sm::timing::Timer Timer;
+typedef sm::timing::DummyTimer Timer;
+
 static constexpr unsigned int kNPhi = 2880;
 static constexpr unsigned int kNTheta = 1440;
 static constexpr double kPhiIndexFactor = kNPhi / (2.0*M_PI);
@@ -63,39 +68,65 @@ class PointCloudContainer : public ContainerBase {
     return std::make_pair(phi_index, theta_index);
   }
 
+  void updateBoundary(const Eigen::Vector3d& cur_point) {
+    if (cur_point(0) > max_x) max_x = cur_point(0);
+    else if (cur_point(0) < min_x) min_x = cur_point(0);
+    if (cur_point(1) > max_y) max_y = cur_point(1);
+    else if (cur_point(1) < min_y) min_y = cur_point(1);
+    if (cur_point(2) > max_z) max_z = cur_point(2);
+    else if (cur_point(2) < min_z) min_z = cur_point(2);
+  }
+
   void processCloud() {
     const unsigned int phi_offset = kNStdDev * std_dev_(0,0) * kPhiIndexFactor;
     const unsigned int theta_offset = kNStdDev * std_dev_(1,1) * kThetaIndexFactor;
 
     const size_t n_points = occupied_points_.cols();
     for (size_t i = 0; i < n_points; ++i) {
-      const Eigen::Vector3d cur_point = occupied_points_.col(i);
-      if (cur_point(0) > max_x) max_x = cur_point(0);
-      else if (cur_point(0) < min_x) min_x = cur_point(0);
-      if (cur_point(1) > max_y) max_y = cur_point(1);
-      else if (cur_point(1) < min_y) min_y = cur_point(1);
-      if (cur_point(2) > max_z) max_z = cur_point(2);
-      else if (cur_point(2) < min_z) min_z = cur_point(2);
+      Timer boundary_timer("UpdateBoundary");
+      updateBoundary(occupied_points_.col(i));
+      boundary_timer.stop();
 
-      const SphericalPointR2 spherical = cartesianToSphericalR2(cur_point);
+      Timer cart_to_spherical("CartToSpherical");
+      const SphericalPointR2 spherical = cartesianToSphericalR2(occupied_points_.col(i));
+      cart_to_spherical.stop();
+      Timer sqrt_timer("Sqrt");
       spherical_points_.col(i) = SphericalVector(spherical.phi,
                                                  spherical.theta,
                                                  sqrt(spherical.r2));
+      sqrt_timer.stop();
+      Timer get_index("GetIndex");
       const auto ind = index(spherical);
+      get_index.stop();
       // Add kNPhi/Theta to avoid negative indices so we can do modulo for circular index.
+      Timer allocate_pair("Allocate");
       const std::pair<unsigned int, unsigned int> phi_bound(ind.first - phi_offset + kNPhi,
                                                             ind.first + phi_offset + kNPhi);
       const std::pair<unsigned int, unsigned int> theta_bound(ind.second - theta_offset + kNTheta,
                                                               ind.second + theta_offset + kNTheta);
+      allocate_pair.stop();
+      Timer update_segmentation("UpdateSegmentation");
+//      Timer mod_timer("Mod");
+//      mod_timer.stop();
+//      Timer comp_timer("Comp");
+//      comp_timer.stop();
+      std::cout << "phi_bound " << phi_bound.first << " " << phi_bound.second
+                << "theta_bound " << theta_bound.first << " " << theta_bound.second << "\n";
       for (unsigned int phi_index = phi_bound.first; phi_index <= phi_bound.second; ++phi_index) {
         for (unsigned int theta_index = theta_bound.first;
              theta_index <= theta_bound.second; ++theta_index) {
+//          mod_timer.start();
           const unsigned int i_phi = phi_index % kNPhi;
           const unsigned int i_theta = theta_index % kNTheta;
-          if (segmentation_[i_phi][i_theta] < spherical.r2)
+//          mod_timer.stop();
+//          comp_timer.start();
+          if (segmentation_[i_phi][i_theta] < spherical.r2) {
             segmentation_[i_phi][i_theta] = spherical.r2;
+          }
+//          comp_timer.stop();
         }
       }
+      update_segmentation.stop();
     }
     static const double offset = kNStdDev * std_dev_(2,2);
     max_x += offset; max_y += offset; max_z += offset;

@@ -209,15 +209,21 @@ double findDist(const size_t& index, std::list<std::pair<size_t, double>>& ind_t
 }
 
 // This function is terribly inefficient DO NOT USE EXCEPT FOR DEBUGGING.
-void OctomapCompare::saveClusterResultToFile(const std::string& filename) {
+void OctomapCompare::saveClusterResultToFile(const std::string& filename,
+                                             ClusterCentroidVector* cluster_centroids) {
+  CHECK_NOTNULL(cluster_centroids)->clear();
   std::ofstream out_file;
   out_file.open(filename, std::ios::trunc);
   if (out_file.is_open()) {
     // Print labels.
     out_file << "x, y, z, phi, theta, r, distance, cluster\n";
 
+    std::unordered_map<int, Eigen::Vector3d> cluster_to_centroid;
+    std::unordered_map<int, unsigned int> cluster_to_n_points;
+
     for (const auto& ind_cluster : comp_index_to_cluster_) {
       const Eigen::Vector3d cartesian(compare_container_->Points().col(ind_cluster.first));
+      const Eigen::Vector3d cartesian_base(T_base_comp_ * cartesian);
       const SphericalVector spherical(compare_container_->cartesianToSpherical(cartesian));
       const double dist = findDist(ind_cluster.first, comp_index_to_distances_);
       out_file << cartesian(0) << ", "
@@ -228,6 +234,18 @@ void OctomapCompare::saveClusterResultToFile(const std::string& filename) {
                << spherical(2) << ", "
                << dist << ", "
                << ind_cluster.second << "\n";
+
+      const auto res = cluster_to_centroid.insert(
+            std::make_pair(ind_cluster.second, cartesian_base));
+      if (res.second) {
+        // First point of that cluster.
+        cluster_to_n_points[ind_cluster.second] = 1;
+      }
+      else {
+        // Already points.
+        const unsigned int n = cluster_to_n_points[ind_cluster.second]++;
+        res.first->second = res.first->second * n/(n+1.0) + cartesian_base * 1.0/(n+1);
+      }
     }
     for (const auto& ind_cluster : base_index_to_cluster_) {
       const Eigen::Vector3d cartesian_base(base_octree_.Points().col(ind_cluster.first));
@@ -242,8 +260,24 @@ void OctomapCompare::saveClusterResultToFile(const std::string& filename) {
                << spherical(2) << ", "
                << dist << ", "
                << -ind_cluster.second << "\n";
+
+      const auto res = cluster_to_centroid.insert(
+            std::make_pair(ind_cluster.second, cartesian_base));
+      if (res.second) {
+        // First point of that cluster.
+        cluster_to_n_points[-ind_cluster.second] = 1;
+      }
+      else {
+        // Already points.
+        const unsigned int n = cluster_to_n_points[-ind_cluster.second]++;
+        res.first->second = res.first->second * n/(n+1.0) + cartesian_base * 1.0/(n+1);
+      }
     }
+
     LOG(INFO) << "Wrote to file \"" << filename << "\".";
+    cluster_centroids->insert(cluster_centroids->begin(),
+                              cluster_to_centroid.begin(),
+                              cluster_to_centroid.end());
   }
   else {
     LOG(ERROR) << "Could not open file \"" << filename << "\".";

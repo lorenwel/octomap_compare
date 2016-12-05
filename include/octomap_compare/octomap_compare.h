@@ -121,7 +121,7 @@ public:
                      Eigen::MatrixXd::Identity(4, 4));
 
   /// \brief Save result of clustering to file for evaluation in MATLAB.
-  void saveClusterResultToFile(const std::string& filename);
+  void saveClusterResultToFile(const std::string& filename, ClusterCentroidVector* cluster_centroids);
 
   /// \brief Get the changes as point cloud. Color indicates cluster.
   void getChanges(pcl::PointCloud<pcl::PointXYZRGB>* cloud);

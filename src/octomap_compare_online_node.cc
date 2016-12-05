@@ -10,6 +10,7 @@
 #include <tf/transform_listener.h>
 #include <tf_conversions/tf_eigen.h>
 
+#include "octomap_compare/file_writer.h"
 #include "octomap_compare/octomap_compare.h"
 #include "octomap_compare/octomap_compare_utils.h"
 
@@ -62,15 +63,17 @@ class Online {
         auto end = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> duration = end - start;
 
-        const std::string filename("/tmp/compare_output_" + std::to_string(n_printed_++) + ".csv");
-        octomap_compare_.saveClusterResultToFile(filename);
-
         pcl::PointCloud<pcl::PointXYZRGB> distance_point_cloud;
         octomap_compare_.getDistanceHeatMap(&distance_point_cloud);
 
         color_pub_.publish(distance_point_cloud);
         changes_pub_.publish(changes_point_cloud);
         std::cout << "Comparing took " << duration.count() << " seconds\n";
+
+//        const std::string filename("/tmp/compare_output_" + std::to_string(n_printed_++) + ".csv");
+//        ClusterCentroidVector cluster_centroids;
+//        octomap_compare_.saveClusterResultToFile(filename, &cluster_centroids);
+//        FileWriter(nh_, cluster_centroids, filename, cloud.header.stamp);
       }
       catch (tf::TransformException& e) {
         ROS_ERROR("Could not transform point cloud: %s", e.what());
@@ -110,6 +113,10 @@ public:
     else {
       first_relocalization_received_ = true;
     }
+  }
+
+  ~Online() {
+    sm::timing::Timing::print(std::cout);
   }
 
 };

@@ -9,7 +9,8 @@ add_definitions(-std=c++11)
 
 cs_add_library(${PROJECT_NAME}
                src/octomap_compare.cc
-               src/octomap_container.cc)
+               src/octomap_container.cc
+               src/file_writer.cc)
 
 cs_add_executable(octomap_compare_online_node src/octomap_compare_online_node.cc)
 target_link_libraries(octomap_compare_online_node ${PROJECT_NAME})
