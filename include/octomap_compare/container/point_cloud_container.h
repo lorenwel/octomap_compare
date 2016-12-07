@@ -8,15 +8,15 @@
 
 #include <sm/timing/Timer.hpp>
 
-//typedef sm::timing::Timer Timer;
-typedef sm::timing::DummyTimer Timer;
+typedef sm::timing::Timer Timer;
+//typedef sm::timing::DummyTimer Timer;
 
 static constexpr unsigned int kNPhi = 2880;
 static constexpr unsigned int kNTheta = 1440;
 static constexpr double kPhiIndexFactor = kNPhi / (2.0*M_PI);
 static constexpr double kThetaIndexFactor = kNTheta / M_PI;
 
-static constexpr unsigned int kNStdDev = 2;
+static constexpr unsigned int kNStdDev = 0;
 
 class PointCloudContainer : public ContainerBase {
 
@@ -83,50 +83,28 @@ class PointCloudContainer : public ContainerBase {
 
     const size_t n_points = occupied_points_.cols();
     for (size_t i = 0; i < n_points; ++i) {
-      Timer boundary_timer("UpdateBoundary");
       updateBoundary(occupied_points_.col(i));
-      boundary_timer.stop();
 
-      Timer cart_to_spherical("CartToSpherical");
       const SphericalPointR2 spherical = cartesianToSphericalR2(occupied_points_.col(i));
-      cart_to_spherical.stop();
-      Timer sqrt_timer("Sqrt");
       spherical_points_.col(i) = SphericalVector(spherical.phi,
                                                  spherical.theta,
                                                  sqrt(spherical.r2));
-      sqrt_timer.stop();
-      Timer get_index("GetIndex");
       const auto ind = index(spherical);
-      get_index.stop();
       // Add kNPhi/Theta to avoid negative indices so we can do modulo for circular index.
-      Timer allocate_pair("Allocate");
       const std::pair<unsigned int, unsigned int> phi_bound(ind.first - phi_offset + kNPhi,
                                                             ind.first + phi_offset + kNPhi);
       const std::pair<unsigned int, unsigned int> theta_bound(ind.second - theta_offset + kNTheta,
                                                               ind.second + theta_offset + kNTheta);
-      allocate_pair.stop();
-      Timer update_segmentation("UpdateSegmentation");
-//      Timer mod_timer("Mod");
-//      mod_timer.stop();
-//      Timer comp_timer("Comp");
-//      comp_timer.stop();
-      std::cout << "phi_bound " << phi_bound.first << " " << phi_bound.second
-                << "theta_bound " << theta_bound.first << " " << theta_bound.second << "\n";
       for (unsigned int phi_index = phi_bound.first; phi_index <= phi_bound.second; ++phi_index) {
         for (unsigned int theta_index = theta_bound.first;
              theta_index <= theta_bound.second; ++theta_index) {
-//          mod_timer.start();
           const unsigned int i_phi = phi_index % kNPhi;
           const unsigned int i_theta = theta_index % kNTheta;
-//          mod_timer.stop();
-//          comp_timer.start();
           if (segmentation_[i_phi][i_theta] < spherical.r2) {
             segmentation_[i_phi][i_theta] = spherical.r2;
           }
-//          comp_timer.stop();
         }
       }
-      update_segmentation.stop();
     }
     static const double offset = kNStdDev * std_dev_(2,2);
     max_x += offset; max_y += offset; max_z += offset;
@@ -178,9 +156,7 @@ class PointCloudContainer : public ContainerBase {
     const SphericalVector out = cartesianToSpherical(point);
     *spherical_coordinates = std_dev_inverse_ * out;
 
-    const auto ind = index(out);
-    const double r2 = point.squaredNorm();
-    return (segmentation_[ind.first][ind.second] > r2);
+    return true;
   }
 
   bool isObserved(const SphericalVector& spherical_point) const {

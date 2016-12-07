@@ -60,9 +60,19 @@ public:
     Eigen::Matrix3d std_dev;
     // Transform from sensor frame to spherical coordinate frame.
     Eigen::Matrix3d spherical_transform;
+    // File for ICP configuration.
+    std::string icp_configuration_file;
+    // File for ICP input filters.
+    std::string icp_input_filters_file;
+    std::string icp_base_filters_file;
   };
 
 private:
+
+  // ICP object.
+  PM::ICP icp_;
+  PM::DataPointsFilters input_filters_;
+  PM::DataPointsFilters base_filters_;
 
   // Octomap considered to be the base map for comparison.
   OctomapContainer base_octree_;
@@ -106,6 +116,9 @@ private:
 
   /// \brief Get changes between octomaps using the result from a comparison.
   void computeChanges(const PointCloudContainer &compare_container);
+
+  /// \brief Load ICP config from file.
+  void loadICPConfig();
 
 public:
   /// \brief Constructor which reads octomaps from specified files.

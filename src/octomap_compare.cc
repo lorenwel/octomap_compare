@@ -11,11 +11,45 @@
 
 OctomapCompare::OctomapCompare(const std::string& base_file,
                                const CompareParams& params) :
-    base_octree_(base_file), params_(params) {}
+    base_octree_(base_file), params_(params) {
+  loadICPConfig();
+}
 
 OctomapCompare::OctomapCompare(const std::shared_ptr<octomap::OcTree>& base_tree,
                                const CompareParams &params) :
-    base_octree_(base_tree), params_(params) {}
+    base_octree_(base_tree), params_(params) {
+  loadICPConfig();
+}
+
+void OctomapCompare::loadICPConfig() {
+  // Load the ICP configurations.
+  std::ifstream ifs_icp_configurations(params_.icp_configuration_file.c_str());
+  if (ifs_icp_configurations.good()) {
+    LOG(INFO) << "Loading ICP configurations from: " << params_.icp_configuration_file;
+    icp_.loadFromYaml(ifs_icp_configurations);
+  } else {
+    LOG(WARNING) << "Could not open ICP configuration file. Using default configuration.";
+    icp_.setDefault();
+  }
+
+  // Load the ICP input filters configurations.
+  std::ifstream ifs_input_filters(params_.icp_input_filters_file.c_str());
+  if (ifs_input_filters.good()) {
+    LOG(INFO) << "Loading ICP input filters from: " << params_.icp_input_filters_file;
+    input_filters_ = PM::DataPointsFilters(ifs_input_filters);
+  } else {
+    LOG(WARNING) << "Could not open ICP input filters configuration file.";
+  }
+
+  // Load the ICP input filters configurations.
+  std::ifstream ifs_base_filters(params_.icp_base_filters_file.c_str());
+  if (ifs_base_filters.good()) {
+    LOG(INFO) << "Loading ICP base filters from: " << params_.icp_base_filters_file;
+    base_filters_ = PM::DataPointsFilters(ifs_base_filters);
+  } else {
+    LOG(WARNING) << "Could not open ICP base filters configuration file.";
+  }
+}
 
 void OctomapCompare::Reset() {
   base_index_to_distances_.clear();
@@ -36,18 +70,26 @@ void OctomapCompare::compare(PointCloudContainer &compare_container,
   std::cout << "Comparing...\n";
   Reset();
 
+  Timer icp_timer("ICP");
   // Do ICP.
   getTransformFromICP(compare_container, T_initial);  
+  icp_timer.stop();
 
   // Compare backwards first so we fill its spherical point matrix.
   std::cout << "Comparing backward...\n";
+  Timer back_timer("Backwards");
   base_max_dist_ = compareBackward(compare_container);
+  back_timer.stop();
 
   std::cout << "Comparing forward...\n";
+  Timer forward_timer("Forward");
   comp_max_dist_ = compareForward(compare_container);
+  forward_timer.stop();
 
   // Apply threshold and cluster.
+  Timer change_timer("Changes");
   computeChanges(compare_container);
+  change_timer.stop();
 
   std::cout << "Compare cloud has " << comp_index_to_distances_.size() << " observed voxels\n";
   std::cout << "Base cloud has " << base_index_to_distances_.size() << " observed voxels\n";
@@ -123,18 +165,44 @@ double OctomapCompare::compareBackward(
   return max_dist;
 }
 
+void cylindricalFilter(const Matrix3xDynamic& points,
+                       const Eigen::Matrix<double, 4, 4>& T_initial,
+                       const double& d,
+                       Matrix3xDynamic* filtered) {
+  CHECK_NOTNULL(filtered);
+  const double d2 = d*d;
+  const Eigen::Vector3d translation = T_initial.block<3,1>(0,3);
+  std::list<size_t> indices;
+  const size_t n_points = points.cols();
+  for (size_t i = 0; i < n_points; ++i) {
+    if (pow(points.col(i)(0) - translation(0), 2) +
+        pow(points.col(i)(1) - translation(1), 2) +
+        pow(points.col(i)(2) - translation(2), 2) < d2) {
+      indices.push_back(i);
+    }
+  }
+  const size_t n_filtered = indices.size();
+  std::cout << "Cylindrical filter reduced from " << n_points << " to " << n_filtered << " points\n";
+  filtered->resize(3, n_filtered);
+  size_t counter = 0;
+  for (const auto& ind: indices) {
+    filtered->col(counter++) = points.col(ind);
+  }
+}
+
 void OctomapCompare::getTransformFromICP(const ContainerBase& compare_container,
                                          const Eigen::Matrix<double, 4, 4>& T_initial) {
   // Get initial transform.
   std::cout << "Initial transform is\n" << T_initial << "\n";
-  // Initialize ICP.
-  PM::ICP icp;
-  icp.setDefault();
-  PM::DataPoints base_points = matrix3dEigenToPointMatcher(base_octree_.Points());
+  Matrix3xDynamic filtered;
+  cylindricalFilter(base_octree_.Points(), T_initial, 22, &filtered);
+  PM::DataPoints base_points = matrix3dEigenToPointMatcher(filtered);
   PM::DataPoints comp_points = matrix3dEigenToPointMatcher(compare_container.Points());
+//  base_filters_.apply(base_points);
+//  input_filters_.apply(comp_points);
   // Do ICP.
   PM::TransformationParameters T(T_initial);
-  if (params_.perform_icp) T = icp(comp_points, base_points, T);
+  if (params_.perform_icp) T = icp_(comp_points, base_points, T);
   // Get transform.
   T_base_comp_.matrix() = T;
   if (params_.perform_icp) std::cout << "Done ICPeeing, transform is\n"

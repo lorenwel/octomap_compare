@@ -5,7 +5,7 @@ find_package(catkin_simple 0.1.0 REQUIRED )
 
 catkin_simple(ALL_DEPS_REQUIRED)
 
-add_definitions(-std=c++11)
+add_definitions(-std=c++11 -g)
 
 cs_add_library(${PROJECT_NAME}
                src/octomap_compare.cc

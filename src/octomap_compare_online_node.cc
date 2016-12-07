@@ -40,6 +40,7 @@ class Online {
     tf::StampedTransform T_map_robot;
     if (first_relocalization_received_) {
       try {
+        Timer init_timer("Init");
         tf_listener_.lookupTransform("map",
                                      cloud.header.frame_id,
                                      cloud.header.stamp,
@@ -51,6 +52,8 @@ class Online {
         PM::DataPoints intermediate_points =
             PointMatcher_ros::rosMsgToPointMatcherCloud<double>(cloud);
         Matrix3xDynamic points = pointMatcherToMatrix3dEigen(intermediate_points);
+
+        init_timer.stop();
 
         auto start = std::chrono::high_resolution_clock::now();
 
@@ -70,10 +73,10 @@ class Online {
         changes_pub_.publish(changes_point_cloud);
         std::cout << "Comparing took " << duration.count() << " seconds\n";
 
-//        const std::string filename("/tmp/compare_output_" + std::to_string(n_printed_++) + ".csv");
-//        ClusterCentroidVector cluster_centroids;
-//        octomap_compare_.saveClusterResultToFile(filename, &cluster_centroids);
-//        FileWriter(nh_, cluster_centroids, filename, cloud.header.stamp);
+        const std::string filename("/tmp/compare_output_" + std::to_string(n_printed_++) + ".csv");
+        ClusterCentroidVector cluster_centroids;
+        octomap_compare_.saveClusterResultToFile(filename, &cluster_centroids);
+        FileWriter(nh_, cluster_centroids, filename, cloud.header.stamp);
       }
       catch (tf::TransformException& e) {
         ROS_ERROR("Could not transform point cloud: %s", e.what());
@@ -140,6 +143,9 @@ int main(int argc, char** argv) {
   nh.param("color_changes", params.color_changes, params.color_changes);
   nh.param("perform_icp", params.perform_icp, params.perform_icp);
   nh.param("clustering_algorithm", params.clustering_algorithm, params.clustering_algorithm);
+  nh.getParam("icp_configuration_file", params.icp_configuration_file);
+  nh.getParam("icp_input_filters_file", params.icp_input_filters_file);
+  nh.getParam("icp_base_filters_file", params.icp_base_filters_file);
   std::vector<double> temp_transform({1, 0, 0, 0, 1, 0, 0, 0, 1});
   nh.param("spherical_transform", temp_transform, temp_transform);
   params.spherical_transform = Eigen::Matrix<double, 3, 3, Eigen::RowMajor>(temp_transform.data());

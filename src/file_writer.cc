@@ -15,7 +15,7 @@ FileWriter::FileWriter(ros::NodeHandle &nh,
                        shut_down_(false), time_stopped_(false) {
   out_file_.open(file_name, std::ios::app);
   CHECK(out_file_.is_open()) << "Could not open file \"" << file_name << "\".";
-  out_file_ << "\nDynamic indices:";
+  out_file_ << "\n";
 
   // Set separate callback queue so this can be called from within callback.
   ros::CallbackQueueInterface* backup = nh_.getCallbackQueue();
@@ -121,7 +121,7 @@ void FileWriter::pointCallback(const geometry_msgs::PointStamped& point_msg) {
   const int dynamic_cluster = findClosestCentroid(point);
   std::cout << "Set cluster " << dynamic_cluster << " dynamic.\n";
   std::cout.flush();
-  out_file_ << ", " << dynamic_cluster;
+  out_file_ << dynamic_cluster << ", ";
 }
 
 void FileWriter::clockCallback(const rosgraph_msgs::Clock& clock) {
