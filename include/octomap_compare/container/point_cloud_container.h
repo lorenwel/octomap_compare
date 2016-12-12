@@ -170,10 +170,40 @@ class PointCloudContainer : public ContainerBase {
     return true;
   }
 
-  bool isObserved(const SphericalVector& spherical_point, const double dist_correction = 0) const {
+  bool isObserved(const SphericalPoint& spherical_point, const double dist_correction = 0) const {
+    // Find relevant segmentation indices.
+    const int upper_limit_phi = dist_correction * std_dev_(0,0) * kPhiIndexFactor;
+    const int lower_limit_phi = -upper_limit_phi;
+    const int upper_limit_theta = dist_correction * std_dev_(1,1) * kThetaIndexFactor;
+    const int lower_limit_theta = -upper_limit_theta;
     auto ind = index(spherical_point);
-    const double r2 = spherical_point(2) * spherical_point(2);
-    return (segmentation_[ind.first][ind.second] > r2);
+//    std::cout << "phi " << upper_limit_phi << " theta " << upper_limit_theta << " corr " << dist_correction << "\n";
+    std::pair<std::vector<int>, std::vector<int> > ind_bounds;
+    for (int i = lower_limit_phi; i <= upper_limit_phi; ++i) {
+      ind_bounds.first.push_back(ind.first + i);
+    }
+    for (int i = lower_limit_theta; i <= upper_limit_theta; ++i) {
+      ind_bounds.second.push_back(ind.second + i);
+    }
+    for (auto it = ind_bounds.first.begin(); *it < 0; ++it) {
+      *it += kNPhi;
+    }
+    for (auto it = ind_bounds.second.begin(); *it < 0; ++it) {
+      *it += kNPhi;
+    }
+    for (auto it = ind_bounds.first.rbegin(); *it >= kNPhi; ++it) {
+      *it -= kNPhi;
+    }
+    for (auto it = ind_bounds.second.rbegin(); *it >= kNTheta; ++it) {
+      *it -= kNPhi;
+    }
+    // Check all.
+    for (const auto& phi_index: ind_bounds.first) {
+      for (const auto& theta_index: ind_bounds.second) {
+        if (segmentation_[phi_index][theta_index] > spherical_point.r2) return true;
+      }
+    }
+    return false;
   }
 
   inline Matrix3xDynamic& TransformedPoints() {

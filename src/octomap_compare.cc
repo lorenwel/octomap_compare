@@ -153,7 +153,7 @@ double OctomapCompare::compareBackward(
                                            &spherical_point_scaled)) {
       base_spherical.push_back(spherical_point_scaled);
       dist_correction = getDistanceCorrection(spherical_point);
-      if (compare_container.isObserved(spherical_point)) {
+      if (compare_container.isObserved(spherical_point, dist_correction)) {
         OctomapContainer::KNNResult knn_result =
             compare_container.findKNN(spherical_point_scaled, params_.k_nearest_neighbor);
         const double cur_dist = getCompareDist(knn_result.distances,
