@@ -25,16 +25,16 @@ public:
   /// \brief Checks if voxel at point was observed. Also passes back pointer to node at point.
   bool isObserved(const Eigen::Vector3d& point, octomap::OcTreeNode** node) const;
 
-  void setSpherical(const std::list<SphericalVector>& spherical_points) {
+  void setSpherical(const std::list<SphericalPoint>& spherical_points) {
     const size_t n_spherical = spherical_points.size();
-    spherical_points_.resize(3, n_spherical);
+    spherical_points_scaled_.resize(3, n_spherical);
     size_t counter = 0;
     for (auto&& point : spherical_points) {
-      spherical_points_.col(counter++) = point;
+      spherical_points_scaled_.col(counter++) = (Eigen::Vector3d)point;
     }
     if (n_spherical > 0) {
       kd_tree_ = std::unique_ptr<NNSearch3d>(
-          NNSearch3d::createKDTreeLinearHeap(spherical_points_));
+          NNSearch3d::createKDTreeLinearHeap(spherical_points_scaled_));
     }
   }
 

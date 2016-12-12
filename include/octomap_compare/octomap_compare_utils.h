@@ -18,15 +18,50 @@ typedef Nabo::NearestNeighbourSearch<double, Matrix3xDynamic> NNSearch3d;
 typedef Eigen::Vector3d SphericalVector;
 typedef std::vector<std::pair<int, Eigen::Vector3d>> ClusterCentroidVector;
 
+struct SphericalPoint {
+  double r2, phi, theta, r;
+
+  SphericalPoint() = default;
+  SphericalPoint(const Eigen::Vector3d& in) {
+    phi = in(0);
+    theta = in(1);
+    r = in(2);
+    r2 = r*r;
+  }
+
+  SphericalPoint& operator= (const Eigen::Vector3d& in) {
+    phi = in(0);
+    theta = in(1);
+    r = in(2);
+    r2 = r*r;
+
+    return *this;
+  }
+
+  operator Eigen::Vector3d () const {
+    return Eigen::Vector3d(phi, theta, r);
+  }
+};
+
 static double getCompareDist(const Eigen::VectorXd& distances,
-                             const std::string& dist_metric = "max") {
-  if (dist_metric == "max") return distances(distances.size() - 1);
-  else if (dist_metric == "mean") return distances.mean();
-  else if (dist_metric == "min") return distances(0);
+                             const std::string& dist_metric = "max",
+                             const double& correction = 0) {
+  double dist;
+  if (dist_metric == "max") {
+    dist = distances(distances.size() - 1) - correction;
+  }
+  else if (dist_metric == "mean") {
+    dist = distances.mean() - correction;
+  }
+  else if (dist_metric == "min") {
+    dist = distances(0) - correction;
+  }
   else {
-    std::cerr << "Invalid distances metric.\n";
+    LOG(FATAL) << "Invalid distances metric \"" << dist_metric << "\".\n";
     return -1;
   }
+  if (dist < 0) dist = 0;
+  return dist;
 }
 
 static void applyColorToPoint(const pcl::RGB& color, pcl::PointXYZRGB& point) {

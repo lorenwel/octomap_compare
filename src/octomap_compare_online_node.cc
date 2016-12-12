@@ -90,8 +90,10 @@ class Online {
 
   void transformCallback(const geometry_msgs::Transform& transform) {
     ROS_INFO_ONCE("Received relocalization transform!");
-    first_relocalization_received_ = true;
-    tf::transformMsgToEigen(transform, relocalization_transform_);
+    if (!first_relocalization_received_) {
+      first_relocalization_received_ = true;
+      tf::transformMsgToEigen(transform, relocalization_transform_);
+    }
   }
 
 public:
@@ -143,9 +145,9 @@ int main(int argc, char** argv) {
   nh.param("color_changes", params.color_changes, params.color_changes);
   nh.param("perform_icp", params.perform_icp, params.perform_icp);
   nh.param("clustering_algorithm", params.clustering_algorithm, params.clustering_algorithm);
-  nh.getParam("icp_configuration_file", params.icp_configuration_file);
-  nh.getParam("icp_input_filters_file", params.icp_input_filters_file);
-  nh.getParam("icp_base_filters_file", params.icp_base_filters_file);
+//  nh.getParam("/laser_mapper/icp_configuration_file", params.icp_configuration_file);
+//  nh.getParam("/laser_mapper/icp_input_filters_file", params.icp_input_filters_file);
+//  nh.getParam("/laser_mapper/icp_input_filters_file", params.icp_base_filters_file);
   std::vector<double> temp_transform({1, 0, 0, 0, 1, 0, 0, 0, 1});
   nh.param("spherical_transform", temp_transform, temp_transform);
   params.spherical_transform = Eigen::Matrix<double, 3, 3, Eigen::RowMajor>(temp_transform.data());

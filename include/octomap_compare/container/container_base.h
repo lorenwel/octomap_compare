@@ -26,7 +26,7 @@ protected:
   // Eigen Matrix with occupied points.
   Matrix3xDynamic occupied_points_;
 
-  Matrix3xDynamic spherical_points_;
+  Matrix3xDynamic spherical_points_scaled_;
 
   // kd-tree for nearest neighbor search.
   std::unique_ptr<NNSearch3d> kd_tree_;
@@ -48,8 +48,8 @@ public:
   }
 
   /// \brief Access to point cloud matrix. ATTENTION! THESE ARE SCALED WITH THE INVERSE OF STD_DEV
-  inline const Matrix3xDynamic& SphericalPoints() const {
-    return spherical_points_;
+  inline const Matrix3xDynamic& SphericalPointsScaled() const {
+    return spherical_points_scaled_;
   }
 
 };
