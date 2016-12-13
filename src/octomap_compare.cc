@@ -88,7 +88,7 @@ void OctomapCompare::compare(PointCloudContainer &compare_container,
 
   // Apply threshold and cluster.
   Timer change_timer("Changes");
-  computeChanges(compare_container);
+  computeChanges();
   change_timer.stop();
 
   std::cout << "Compare cloud has " << comp_index_to_distances_.size() << " observed voxels\n";
@@ -100,7 +100,7 @@ void OctomapCompare::compare(PointCloudContainer &compare_container,
                " comp max dist: " << sqrt(comp_max_dist_) << "\n";
 }
 
-double OctomapCompare::compareForward(PointCloudContainer& compare_container) {
+double OctomapCompare::compareForward(PointCloudContainer& compare_container) {  
   double max_dist = 0;
   octomap::OcTreeNode* base_node;  // Keep node to check occupancy.
   // Do the comparison.
@@ -140,6 +140,7 @@ double OctomapCompare::compareBackward(
     const PointCloudContainer& compare_container) {
   double max_dist = 0;
   std::list<SphericalPoint> base_spherical;
+  std::list<SphericalPoint> base_spherical_scaled;
   SphericalPoint spherical_point;
   SphericalPoint spherical_point_scaled;
   // Compare base octree to comp octree.
@@ -151,7 +152,8 @@ double OctomapCompare::compareBackward(
     if (compare_container.isApproxObserved(query_point,
                                            &spherical_point,
                                            &spherical_point_scaled)) {
-      base_spherical.push_back(spherical_point_scaled);
+      base_spherical_scaled.push_back(spherical_point_scaled);
+      base_spherical.push_back(spherical_point);
       dist_correction = getDistanceCorrection(spherical_point);
       if (compare_container.isObserved(spherical_point, dist_correction)) {
         OctomapContainer::KNNResult knn_result =
@@ -170,6 +172,7 @@ double OctomapCompare::compareBackward(
       base_unobserved_points_.push_back(i);
     }
   }
+  base_octree_.setSphericalScaled(base_spherical_scaled);
   base_octree_.setSpherical(base_spherical);
 
   return max_dist;
@@ -221,31 +224,91 @@ void OctomapCompare::getTransformFromICP(const ContainerBase& compare_container,
   T_comp_base_ = T_base_comp_.inverse();
 }
 
-void OctomapCompare::computeChanges(const PointCloudContainer &compare_container) {
-  // Apply threshold.
-  std::list<size_t> thres_base_indices;
-  for (const auto& ind_dist : base_index_to_distances_) {
-    if (ind_dist.second > params_.distance_threshold) thres_base_indices.push_back(ind_dist.first);
-  }
-
+void OctomapCompare::getClusterMatrices(Eigen::Matrix<double, Eigen::Dynamic, 3>* appear_transpose,
+                                        Eigen::Matrix<double, Eigen::Dynamic, 3>* disappear_transpose,
+                                        std::list<size_t>* comp_indices,
+                                        std::list<size_t>* base_indices) {
+  CHECK_NOTNULL(comp_indices)->clear();
+  CHECK_NOTNULL(base_indices)->clear();
+  // Do comp points.
   std::list<size_t> thres_comp_indices;
   for (const auto& ind_dist : comp_index_to_distances_) {
     if (ind_dist.second > params_.distance_threshold) thres_comp_indices.push_back(ind_dist.first);
   }
-
-  Eigen::Matrix<double, Eigen::Dynamic, 3> appear_transpose(thres_comp_indices.size(), 3);
-  Eigen::Matrix<double, Eigen::Dynamic, 3> disappear_transpose(thres_base_indices.size(), 3);
-  size_t counter = 0;
-  for (auto&& index : thres_comp_indices) {
-    appear_transpose.row(counter++) = compare_container.Points().col(index).transpose();
+  *comp_indices = thres_comp_indices;
+  appear_transpose->resize(thres_comp_indices.size(), 3);
+  size_t counter = 0u;
+  if (params_.clustering_space == "cartesian") {
+    for (auto&& index : thres_comp_indices) {
+      appear_transpose->row(counter++) = compare_container_->Points().col(index).transpose();
+    }
+  }
+  else if (params_.clustering_space == "spherical") {
+    for (auto&& index : thres_comp_indices) {
+      appear_transpose->row(counter++) =
+          compare_container_->SphericalPoints().col(index).transpose();
+    }
+  }
+  else if (params_.clustering_space == "spherical_scaled") {
+    for (auto&& index : thres_comp_indices) {
+      appear_transpose->row(counter++) =
+          compare_container_->SphericalPointsScaled().col(index).transpose();
+    }
+  }
+  else {
+    LOG(FATAL) << "Unknown clustering space \"" << params_.clustering_space << "\".";
   }
   std::cout << counter << " appearing voxels left after distance thresholding\n";
-  counter = 0;
-  for (auto&& index : thres_base_indices) {
-    disappear_transpose.row(counter++) = base_octree_.Points().col(index).transpose();
+
+  // Do base points.
+  std::list<size_t> thres_base_indices;
+  counter = 0u;
+  if (params_.clustering_space == "cartesian") {
+    for (const auto& ind_dist : base_index_to_distances_) {
+      if (ind_dist.second > params_.distance_threshold) {
+        thres_base_indices.push_back(ind_dist.first);
+        base_indices->push_back(ind_dist.first);
+      }
+    }
+  }
+  else {  // Can only be one of the two spherical
+    for (const auto& ind_dist : base_index_to_distances_) {
+      if (ind_dist.second > params_.distance_threshold) {
+        thres_base_indices.push_back(counter);
+        base_indices->push_back(ind_dist.first);
+      }
+      ++counter;
+    }
+  }
+  disappear_transpose->resize(thres_base_indices.size(), 3);
+  counter = 0u;
+  if (params_.clustering_space == "cartesian") {
+    for (auto&& index : thres_base_indices) {
+      disappear_transpose->row(counter++) = base_octree_.Points().col(index).transpose();
+    }
+  }
+  else if (params_.clustering_space == "spherical") {
+    for (auto&& index : thres_base_indices) {
+      disappear_transpose->row(counter++) =
+          base_octree_.SphericalPoints().col(index).transpose();
+    }
+  }
+  else if (params_.clustering_space == "spherical_scaled") {
+    for (auto&& index : thres_base_indices) {
+      disappear_transpose->row(counter++) =
+          base_octree_.SphericalPointsScaled().col(index).transpose();
+    }
   }
   std::cout << counter << " disappearing voxels left after distance thresholding\n";
-  // Save thresholded indices.
+}
+
+void OctomapCompare::computeChanges() {
+  Eigen::Matrix<double, Eigen::Dynamic, 3> appear_transpose;
+  Eigen::Matrix<double, Eigen::Dynamic, 3> disappear_transpose;
+  std::list<size_t> comp_indices;
+  std::list<size_t> base_indices;
+
+  getClusterMatrices(&appear_transpose, &disappear_transpose, &comp_indices, &base_indices);
 
   // Cluster.
   Eigen::VectorXi appear_cluster;
@@ -254,12 +317,13 @@ void OctomapCompare::computeChanges(const PointCloudContainer &compare_container
   cluster(disappear_transpose, &disappear_cluster);
   disappear_cluster *= -1;  // Disappear clusters have negative index.
 
-  counter = 0;
-  for (const auto& index : thres_comp_indices) {
+  // Save cluster result.
+  size_t counter = 0u;
+  for (const auto& index : comp_indices) {
     comp_index_to_cluster_.push_back(std::make_pair(index, appear_cluster(counter++)));
   }
-  counter = 0;
-  for (const auto& index : thres_base_indices) {
+  counter = 0u;
+  for (const auto& index : base_indices) {
     base_index_to_cluster_.push_back(std::make_pair(index, disappear_cluster(counter++)));
   }
 }
@@ -272,7 +336,7 @@ void OctomapCompare::cluster(const Eigen::Matrix<double, Eigen::Dynamic, 3> poin
   }
   else if (params_.clustering_algorithm == "hdbscan") {
     Hdbscan hdbscan(params_.min_pts);
-    if (points.rows() > 0) hdbscan.cluster(points, indices);
+    if (points.rows() > 0u) hdbscan.cluster(points, indices);
   }
   else {
     std::cerr << "Unknown clustering algorithm: \"" << params_.clustering_algorithm << "\"\n";

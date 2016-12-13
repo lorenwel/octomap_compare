@@ -26,6 +26,7 @@ protected:
   // Eigen Matrix with occupied points.
   Matrix3xDynamic occupied_points_;
 
+  Matrix3xDynamic spherical_points_;
   Matrix3xDynamic spherical_points_scaled_;
 
   // kd-tree for nearest neighbor search.
@@ -47,7 +48,12 @@ public:
     return occupied_points_;
   }
 
-  /// \brief Access to point cloud matrix. ATTENTION! THESE ARE SCALED WITH THE INVERSE OF STD_DEV
+  /// \brief Access to spherical coordinate point cloud matrix.
+  inline const Matrix3xDynamic& SphericalPoints() const {
+    return spherical_points_;
+  }
+
+  /// \brief Access to spherical coordinate point cloud matrix. ATTENTION! THESE ARE SCALED WITH THE INVERSE OF STD_DEV
   inline const Matrix3xDynamic& SphericalPointsScaled() const {
     return spherical_points_scaled_;
   }

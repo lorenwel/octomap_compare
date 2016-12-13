@@ -38,9 +38,6 @@ class PointCloudContainer : public ContainerBase {
 
   Matrix3xDynamic transformed_points_;
 
-  // Spherical points scaled by inverse of std_dev. Used for mahalanobis distance in knn.
-  Matrix3xDynamic spherical_points_;
-
   Eigen::Vector3d sphericalToCartesian(const SphericalVector& spherical) const {
     const double x = spherical(2) * sin(spherical(1)) * cos(spherical(0));
     const double y = spherical(2) * sin(spherical(1)) * sin(spherical(0));
@@ -101,7 +98,7 @@ class PointCloudContainer : public ContainerBase {
         segmentation_[ind.first][ind.second] = spherical.r2;
       }
     }
-    static const double offset = kNStdDev * std_dev_(2,2);
+    const double offset = kNStdDev * std_dev_(2,2);
     max_x += offset; max_y += offset; max_z += offset;
     min_x -= offset; min_y -= offset; min_z -= offset;
 
@@ -124,13 +121,15 @@ class PointCloudContainer : public ContainerBase {
     spherical_points_scaled_.resize(3, occupied_points_.cols());
     transformed_points_.resize(3, occupied_points_.cols());
 
+    CHECK_EQ(spherical_points_.cols(),
+             spherical_points_scaled_.cols());
+
     processCloud();
 
     // Create kd tree.
     kd_tree_ = std::unique_ptr<NNSearch3d>(
                    NNSearch3d::createKDTreeLinearHeap(spherical_points_scaled_));
     std::cout << "Created kd-tree\n";
-
   }
 
   SphericalPoint cartesianToSpherical(const Eigen::Vector3d& point_base) const {
@@ -213,12 +212,6 @@ class PointCloudContainer : public ContainerBase {
   inline const Matrix3xDynamic& TransformedPoints() const {
     return transformed_points_;
   }
-
-  /// \brief Access to point cloud matrix.
-  inline const Matrix3xDynamic& SphericalPoints() const {
-    return spherical_points_;
-  }
-
 
 };
 

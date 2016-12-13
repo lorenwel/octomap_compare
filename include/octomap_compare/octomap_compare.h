@@ -50,6 +50,8 @@ public:
     std::string distance_computation;
     // Which clustering algorithm to use.
     std::string clustering_algorithm;
+    // Which coordinate space to use for clustering.
+    std::string clustering_space;
     // Color changes point cloud based on appearing/disappearing.
     bool color_changes;
     // Show outlier after clustering.
@@ -115,10 +117,15 @@ private:
   void Reset();
 
   /// \brief Get changes between octomaps using the result from a comparison.
-  void computeChanges(const PointCloudContainer &compare_container);
+  void computeChanges();
 
   /// \brief Load ICP config from file.
   void loadICPConfig();
+
+  void getClusterMatrices(Eigen::Matrix<double, Eigen::Dynamic, 3>* appear_transpose,
+                          Eigen::Matrix<double, Eigen::Dynamic, 3>* disappear_transpose,
+                          std::list<size_t>* comp_indices,
+                          std::list<size_t>* base_indices);
 
   /// \brief Returns number of angular std deviations an octomap voxel occupies at certain distance.
   ///        Is only a sensible correction if std_dev of theta == std_dev of phi.

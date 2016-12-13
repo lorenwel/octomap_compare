@@ -57,8 +57,9 @@ class Online {
 
         auto start = std::chrono::high_resolution_clock::now();
 
-        PointCloudContainer comp_octree(points, params_.spherical_transform, params_.std_dev);
-        octomap_compare_.compare(comp_octree, T_initial.matrix());
+        PointCloudContainer compare_container(points, params_.spherical_transform, params_.std_dev);
+
+        octomap_compare_.compare(compare_container, T_initial.matrix());
 
         pcl::PointCloud<pcl::PointXYZRGB> changes_point_cloud;
         octomap_compare_.getChanges(&changes_point_cloud);
@@ -145,6 +146,7 @@ int main(int argc, char** argv) {
   nh.param("color_changes", params.color_changes, params.color_changes);
   nh.param("perform_icp", params.perform_icp, params.perform_icp);
   nh.param("clustering_algorithm", params.clustering_algorithm, params.clustering_algorithm);
+  nh.param("clustering_space", params.clustering_space, params.clustering_space);
 //  nh.getParam("/laser_mapper/icp_configuration_file", params.icp_configuration_file);
 //  nh.getParam("/laser_mapper/icp_input_filters_file", params.icp_input_filters_file);
 //  nh.getParam("/laser_mapper/icp_input_filters_file", params.icp_base_filters_file);

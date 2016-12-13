@@ -10,6 +10,7 @@ k_nearest_neighbor: 2 # number of neighbors to use for distance computation
 distance_computation: "max"   # options are "min", "mean", "max", applied to result of knn search
 # clustering parameter
 clustering_algorithm: "hdbscan"  # valid are "dbscan" and "hdbscan"
+clustering_space: "spherical" # which coordinate space to use for clustering. "cartesian", "spherica", "spherical_scaled"
 min_pts: 10 # number of points in neighborhood to be considered a cluster base point. 'dbscan' and 'hdbscan'
 eps: 0.3  # distance for other points to be considered neighbors. 'dbscan' only
 # visualization parameter
