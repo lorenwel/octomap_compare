@@ -123,7 +123,7 @@ private:
   /// \brief Returns number of angular std deviations an octomap voxel occupies at certain distance.
   ///        Is only a sensible correction if std_dev of theta == std_dev of phi.
   inline double getDistanceCorrection(const SphericalPoint& point) {
-    return base_octree_->getResolution() / point.r / params_.std_dev(0,0);
+    return base_octree_->getResolution() / point.r / params_.std_dev(0,0) / 2;
   }
 
 public:

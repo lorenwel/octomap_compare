@@ -43,23 +43,24 @@ struct SphericalPoint {
   }
 };
 
-static double getCompareDist(const Eigen::VectorXd& distances,
+static double getCompareDist(const Eigen::VectorXd& distances2,
                              const std::string& dist_metric = "max",
                              const double& correction = 0) {
   double dist;
   if (dist_metric == "max") {
-    dist = distances(distances.size() - 1) - correction;
+    dist = sqrt(distances2(distances2.size() - 1));
   }
   else if (dist_metric == "mean") {
-    dist = distances.mean() - correction;
+    dist = sqrt(distances2.mean());
   }
   else if (dist_metric == "min") {
-    dist = distances(0) - correction;
+    dist = sqrt(distances2(0));
   }
   else {
     LOG(FATAL) << "Invalid distances metric \"" << dist_metric << "\".\n";
     return -1;
   }
+  dist -= correction;
   if (dist < 0) dist = 0;
   return dist;
 }

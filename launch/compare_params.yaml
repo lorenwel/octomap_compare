@@ -15,7 +15,7 @@ eps: 0.3  # distance for other points to be considered neighbors. 'dbscan' only
 # visualization parameter
 show_unobserved_voxels: false  # show unobserved voxels/points in distance heat map
 show_outliers: true  # show unobserved voxels/points in distance heat map
-color_changes: false  # color changes based on them appearing/disappearing
+color_changes: true  # color changes based on them appearing/disappearing
 max_vis_dist: 0.0 # max distance for heat map color. Setting 0 uses maximum distance of distance computation
 # mahalanobis distance
 # std_dev: [0.035, 0, 0,

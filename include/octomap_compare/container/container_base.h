@@ -11,12 +11,12 @@ class ContainerBase {
 public:
   struct KNNResult {
     // Distances of closest neighbors.
-    Eigen::VectorXd distances;
+    Eigen::VectorXd distances2;
     // Indices of closest points.
     Eigen::VectorXi indices;
 
     KNNResult(const unsigned int& n_neighbors) {
-      distances.resize(n_neighbors);
+      distances2.resize(n_neighbors);
       indices.resize(n_neighbors);
     }
   };
@@ -37,7 +37,7 @@ public:
   KNNResult findKNN(const Eigen::Vector3d& point, const unsigned int& n_neighbors) const {
     // Query.
     KNNResult result(n_neighbors);
-    kd_tree_->knn(point, result.indices, result.distances,
+    kd_tree_->knn(point, result.indices, result.distances2,
                   n_neighbors, 0, NNSearch3d::SORT_RESULTS);
     return result;
   }

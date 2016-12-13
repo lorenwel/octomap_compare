@@ -122,7 +122,7 @@ double OctomapCompare::compareForward(PointCloudContainer& compare_container) {
         const SphericalVector spherical = compare_container.SphericalPoints().col(i);
         OctomapContainer::KNNResult knn_result =
             base_octree_.findKNN(spherical_scaled, params_.k_nearest_neighbor);
-        const double cur_dist = getCompareDist(knn_result.distances,
+        const double cur_dist = getCompareDist(knn_result.distances2,
                                                params_.distance_computation,
                                                getDistanceCorrection(spherical));
         comp_index_to_distances_.push_back(std::make_pair(i, cur_dist));
@@ -156,7 +156,7 @@ double OctomapCompare::compareBackward(
       if (compare_container.isObserved(spherical_point, dist_correction)) {
         OctomapContainer::KNNResult knn_result =
             compare_container.findKNN(spherical_point_scaled, params_.k_nearest_neighbor);
-        const double cur_dist = getCompareDist(knn_result.distances,
+        const double cur_dist = getCompareDist(knn_result.distances2,
                                                params_.distance_computation,
                                                dist_correction);
         base_index_to_distances_.push_back(std::make_pair(i, cur_dist));
@@ -223,16 +223,14 @@ void OctomapCompare::getTransformFromICP(const ContainerBase& compare_container,
 
 void OctomapCompare::computeChanges(const PointCloudContainer &compare_container) {
   // Apply threshold.
-  const double thres = params_.distance_threshold * params_.distance_threshold;
-
   std::list<size_t> thres_base_indices;
   for (const auto& ind_dist : base_index_to_distances_) {
-    if (ind_dist.second > thres) thres_base_indices.push_back(ind_dist.first);
+    if (ind_dist.second > params_.distance_threshold) thres_base_indices.push_back(ind_dist.first);
   }
 
   std::list<size_t> thres_comp_indices;
   for (const auto& ind_dist : comp_index_to_distances_) {
-    if (ind_dist.second > thres) thres_comp_indices.push_back(ind_dist.first);
+    if (ind_dist.second > params_.distance_threshold) thres_comp_indices.push_back(ind_dist.first);
   }
 
   Eigen::Matrix<double, Eigen::Dynamic, 3> appear_transpose(thres_comp_indices.size(), 3);
@@ -446,19 +444,19 @@ void OctomapCompare::getDistanceHeatMap(pcl::PointCloud<pcl::PointXYZRGB>* dista
   CHECK_NOTNULL(distance_point_cloud)->clear();
   distance_point_cloud->header.frame_id = "map";
   double max_dist;
-  if (base_max_dist_ > comp_max_dist_) max_dist = sqrt(base_max_dist_);
-  else max_dist = sqrt(comp_max_dist_);
+  if (base_max_dist_ > comp_max_dist_) max_dist = base_max_dist_;
+  else max_dist = comp_max_dist_;
   if (params_.max_vis_dist > 0) max_dist = params_.max_vis_dist;
   pcl::RGB color;
   pcl::PointXYZRGB pointrgb;
   for (const auto& ind_dist : base_index_to_distances_) {
-    color = getColorFromDistance(sqrt(ind_dist.second), max_dist);
+    color = getColorFromDistance(ind_dist.second, max_dist);
     applyColorToPoint(color, pointrgb);
     setXYZFromEigen(base_octree_.Points().col(ind_dist.first), pointrgb);
     distance_point_cloud->push_back(pointrgb);
   }
   for (const auto& ind_dist : comp_index_to_distances_) {
-    color = getColorFromDistance(sqrt(ind_dist.second), max_dist);
+    color = getColorFromDistance(ind_dist.second, max_dist);
     applyColorToPoint(color, pointrgb);
     setXYZFromEigen(compare_container_->TransformedPoints().col(ind_dist.first), pointrgb);
     distance_point_cloud->push_back(pointrgb);
