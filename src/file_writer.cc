@@ -112,7 +112,7 @@ int FileWriter::findClosestCentroid(const Eigen::Vector3d& point) {
       index = cur.first;
     }
   }
-  CHECK_NE(index, 0) << "Got outlier cluster as closest centroid.";
+  if (index == 0) LOG(WARNING) << "Got outlier cluster as closest centroid.";
   return index;
 }
 
