@@ -28,7 +28,9 @@ void OctomapCompare::loadICPConfig() {
     LOG(INFO) << "Loading ICP configurations from: " << params_.icp_configuration_file;
     icp_.loadFromYaml(ifs_icp_configurations);
   } else {
-    LOG(WARNING) << "Could not open ICP configuration from: \"" << params_.icp_configuration_file << "\" file. Using default configuration.";
+    LOG(WARNING) << "Could not open ICP configuration from: \""
+                 << params_.icp_configuration_file
+                 << "\" file. Using default configuration.";
     icp_.setDefault();
   }
 
@@ -436,32 +438,36 @@ void OctomapCompare::getChanges(pcl::PointCloud<pcl::PointXYZRGB>* cloud) {
   std::unordered_set<int> cluster_indices;
   // Generate cluster to color map.
   pcl::RGB color;
-  if (!params_.color_changes) {
-    for (const auto& ind_cluster : comp_index_to_cluster_) {
-      const auto success = cluster_indices.insert(ind_cluster.second);
-      // Generate color if it is new cluster.
-      if (success.second) {
+  color.r = 0; color.g = 255; color.b = 0;
+  for (const auto& ind_cluster : comp_index_to_cluster_) {
+    const auto success = cluster_indices.insert(ind_cluster.second);
+    // Generate color if it is new cluster.
+    if (success.second) {
+      if (!params_.color_changes) {
         color.r = rand() * 255; color.g = rand() * 255; color.b = rand() * 255;
-        color_map_appear[ind_cluster.second] = color;
       }
+      color_map_appear[ind_cluster.second] = color;
     }
-    cluster_indices.clear();
-    for (const auto& ind_cluster : base_index_to_cluster_) {
-      const auto success = cluster_indices.insert(ind_cluster.second);
-      // Generate color if it is new cluster.
-      if (success.second) {
+  }
+  cluster_indices.clear();
+  color.r = 255; color.g = 0; color.b = 0;
+  for (const auto& ind_cluster : base_index_to_cluster_) {
+    const auto success = cluster_indices.insert(ind_cluster.second);
+    // Generate color if it is new cluster.
+    if (success.second) {
+      if (!params_.color_changes) {
         color.r = rand() * 255; color.g = rand() * 255; color.b = rand() * 255;
-        color_map_disappear[ind_cluster.second] = color;
       }
+      color_map_disappear[ind_cluster.second] = color;
     }
   }
   // Add outlier color.
   if (params_.show_outliers) {
-    color.r = 180; color.g = 180; color.b = 180;
+    color.r = 127; color.g = 127; color.b = 127;
     if (params_.color_changes) {
-      color.g = 255;
+      color.g = 180;
       color_map_appear[0] = color;
-      color.r = 255; color.g = 180;
+      color.r = 180; color.g = 127;
       color_map_disappear[0] = color;
     }
     else {
@@ -474,12 +480,7 @@ void OctomapCompare::getChanges(pcl::PointCloud<pcl::PointXYZRGB>* cloud) {
   Eigen::Vector3d eigen_point;
   for (const auto& ind_cluster : comp_index_to_cluster_) {
     if (params_.show_outliers || ind_cluster.second != 0) {
-      if (params_.color_changes) {
-        color.r = 0; color.g = 255; color.b = 0;
-      }
-      else {
-        color = color_map_appear[ind_cluster.second];
-      }
+      color = color_map_appear[ind_cluster.second];
       eigen_point = T_base_comp_ * Eigen::Vector3d(
                                        compare_container_->Points().col(ind_cluster.first));
       applyColorToPoint(color, point);
@@ -489,12 +490,7 @@ void OctomapCompare::getChanges(pcl::PointCloud<pcl::PointXYZRGB>* cloud) {
   }
   for (const auto& ind_cluster : base_index_to_cluster_) {
     if (params_.show_outliers || ind_cluster.second != 0) {
-      if (params_.color_changes) {
-        color.r = 255; color.g = 0; color.b = 0;
-      }
-      else {
-        color = color_map_disappear[ind_cluster.second];
-      }
+      color = color_map_disappear[ind_cluster.second];
       eigen_point = base_octree_.Points().col(ind_cluster.first);
       applyColorToPoint(color, point);
       setXYZFromEigen(eigen_point, point);

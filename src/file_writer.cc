@@ -61,13 +61,15 @@ void FileWriter::removeCentroids() {
   marker.color.b = 1.0;
 
   for (const auto& centroid : cluster_centroids_) {
-    marker.id = centroid.first;
-    marker.pose.position.x = centroid.second.x();
-    marker.pose.position.y = centroid.second.y();
-    marker.pose.position.z = centroid.second.z();
-    marker.text = base_text + std::to_string(centroid.first);
+    if (centroid.first != 0) {
+      marker.id = centroid.first;
+      marker.pose.position.x = centroid.second.x();
+      marker.pose.position.y = centroid.second.y();
+      marker.pose.position.z = centroid.second.z();
+      marker.text = base_text + std::to_string(centroid.first);
 
-    array.markers.push_back(marker);
+      array.markers.push_back(marker);
+    }
   }
   centroid_pub_.publish(array);
 }
@@ -91,13 +93,15 @@ void FileWriter::publishCentroids() {
   marker.color.b = 1.0;
 
   for (const auto& centroid : cluster_centroids_) {
-    marker.id = centroid.first;
-    marker.pose.position.x = centroid.second.x();
-    marker.pose.position.y = centroid.second.y();
-    marker.pose.position.z = centroid.second.z();
-    marker.text = base_text + std::to_string(centroid.first);
+    if (centroid.first != 0) {
+      marker.id = centroid.first;
+      marker.pose.position.x = centroid.second.x();
+      marker.pose.position.y = centroid.second.y();
+      marker.pose.position.z = centroid.second.z();
+      marker.text = base_text + std::to_string(centroid.first);
 
-    array.markers.push_back(marker);
+      array.markers.push_back(marker);
+    }
   }
   centroid_pub_.publish(array);
 }
