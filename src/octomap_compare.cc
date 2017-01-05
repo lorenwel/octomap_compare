@@ -67,7 +67,7 @@ void OctomapCompare::Reset() {
 }
 
 void OctomapCompare::compare(PointCloudContainer &compare_container,
-                             const Eigen::Matrix<double, 4, 4>& T_initial) {
+                             Eigen::Matrix<double, 4, 4>* T_initial) {
   compare_container_ = &compare_container;
   std::cout << "Comparing...\n";
   Reset();
@@ -206,9 +206,9 @@ void cylindricalFilter(const Matrix3xDynamic& points,
 }
 
 void OctomapCompare::getTransformFromICP(const ContainerBase& compare_container,
-                                         const Eigen::Matrix<double, 4, 4>& T_initial) {
+                                         Eigen::Matrix<double, 4, 4>* T_initial) {
   // Get initial transform.
-  std::cout << "Initial transform is\n" << T_initial << "\n";
+  std::cout << "Initial transform is\n" << *T_initial << "\n";
   Matrix3xDynamic filtered;
 //  cylindricalFilter(base_octree_.Points(), T_initial, 25, &filtered);
 //  PM::DataPoints base_points = matrix3dEigenToPointMatcher(filtered);
@@ -217,10 +217,11 @@ void OctomapCompare::getTransformFromICP(const ContainerBase& compare_container,
 //  base_filters_.apply(base_points);
 //  input_filters_.apply(comp_points);
   // Do ICP.
-  PM::TransformationParameters T(T_initial);
+  PM::TransformationParameters T(*T_initial);
   if (params_.perform_icp) T = icp_(comp_points, base_points, T);
   // Get transform.
   T_base_comp_.matrix() = T;
+  *T_initial = T;
   if (params_.perform_icp) std::cout << "Done ICPeeing, transform is\n"
                                      << T_base_comp_.matrix() << "\n";
   T_comp_base_ = T_base_comp_.inverse();
@@ -317,7 +318,7 @@ void OctomapCompare::computeChanges() {
   Eigen::VectorXi disappear_cluster;
   cluster(appear_transpose, &appear_cluster);
   cluster(disappear_transpose, &disappear_cluster);
-  disappear_cluster *= -1;  // Disappear clusters have negative index.
+  disappear_cluster *= -1;
 
   // Save cluster result.
   size_t counter = 0u;
@@ -330,11 +331,10 @@ void OctomapCompare::computeChanges() {
   }
 }
 
-void OctomapCompare::cluster(const Eigen::Matrix<double, Eigen::Dynamic, 3> points,
+void OctomapCompare::cluster(const Eigen::Matrix<double, Eigen::Dynamic, 3>& points,
                              Eigen::VectorXi* indices) {
   if (params_.clustering_algorithm == "dbscan") {
-    Dbscan dbscan_appear(points, params_.eps, params_.min_pts);
-    dbscan_appear.cluster(indices);
+    Dbscan::Cluster(points, params_.eps, params_.min_pts, indices);
   }
   else if (params_.clustering_algorithm == "hdbscan") {
     Hdbscan hdbscan(params_.min_pts);

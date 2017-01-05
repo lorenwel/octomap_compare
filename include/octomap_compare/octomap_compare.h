@@ -108,10 +108,10 @@ private:
 
   /// \brief Get transform to align octomaps.
   void getTransformFromICP(const ContainerBase& compare_container,
-                           const Eigen::Matrix<double, 4, 4>& T_initial);
+                           Eigen::Matrix<double, 4, 4>* T_initial);
 
   /// \brief Cluster the points.
-  void cluster(const Eigen::Matrix<double, Eigen::Dynamic, 3> points, Eigen::VectorXi* indices);
+  void cluster(const Eigen::Matrix<double, Eigen::Dynamic, 3>& points, Eigen::VectorXi* indices);
 
   /// \brief Reset all member variables.
   void Reset();
@@ -143,8 +143,7 @@ public:
 
   /// \brief Compare both loaded point clouds and return colored point cloud.
   void compare(PointCloudContainer& compare_container,
-               const Eigen::Matrix<double, 4, 4>& T_initial =
-                     Eigen::MatrixXd::Identity(4, 4));
+               Eigen::Matrix<double, 4, 4>* T_initial);
 
   /// \brief Save result of clustering to file for evaluation in MATLAB.
   void saveClusterResultToFile(const std::string& filename, ClusterCentroidVector* cluster_centroids);

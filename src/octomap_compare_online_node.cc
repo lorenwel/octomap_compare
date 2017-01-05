@@ -37,17 +37,17 @@ class Online {
       ROS_WARN("Received empty cloud");
       return;
     }
-    tf::StampedTransform T_map_robot;
+    tf::StampedTransform T_temp;
     if (first_relocalization_received_) {
       try {
         Timer init_timer("Init");
         tf_listener_.lookupTransform("map",
                                      cloud.header.frame_id,
                                      cloud.header.stamp,
-                                     T_map_robot);
-        Eigen::Affine3d T_initial;
-        tf::transformTFToEigen(T_map_robot, T_initial);
-        T_initial = relocalization_transform_ * T_initial;
+                                     T_temp);
+        Eigen::Affine3d T_map_robot;
+        tf::transformTFToEigen(T_temp, T_map_robot);
+        Eigen::Affine3d T_initial = relocalization_transform_ * T_map_robot;
 
         PM::DataPoints intermediate_points =
             PointMatcher_ros::rosMsgToPointMatcherCloud<double>(cloud);
@@ -59,7 +59,7 @@ class Online {
 
         PointCloudContainer compare_container(points, params_.spherical_transform, params_.std_dev);
 
-        octomap_compare_.compare(compare_container, T_initial.matrix());
+        octomap_compare_.compare(compare_container, &T_initial.matrix());
 
         pcl::PointCloud<pcl::PointXYZRGB> changes_point_cloud;
         octomap_compare_.getChanges(&changes_point_cloud);
@@ -73,6 +73,9 @@ class Online {
         color_pub_.publish(distance_point_cloud);
         changes_pub_.publish(changes_point_cloud);
         std::cout << "Comparing took " << duration.count() << " seconds\n";
+
+        // Correct relocalization transform.
+        relocalization_transform_ = T_initial * T_map_robot.inverse();
 
         const std::string filename("/tmp/compare_output_" + std::to_string(n_printed_++) + ".csv");
         ClusterCentroidVector cluster_centroids;
