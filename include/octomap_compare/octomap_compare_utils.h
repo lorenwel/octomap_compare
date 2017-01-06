@@ -43,6 +43,17 @@ struct SphericalPoint {
   }
 };
 
+struct ClusterPoint {
+  Eigen::Vector3d cartesian;
+  Eigen::Vector3d spherical;
+  double distance;
+};
+
+struct Cluster {
+  int id;
+  std::vector<ClusterPoint> points;
+};
+
 static double getCompareDist(const Eigen::VectorXd& distances2,
                              const std::string& dist_metric = "max",
                              const double& correction = 0) {
