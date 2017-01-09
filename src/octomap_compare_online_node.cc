@@ -62,7 +62,10 @@ class Online {
         octomap_compare_.compare(compare_container, &T_initial.matrix());
 
         pcl::PointCloud<pcl::PointXYZRGB> changes_point_cloud;
-        octomap_compare_.getChanges(&changes_point_cloud);
+        octomap_compare_.getChangeCandidates(&changes_point_cloud);
+
+        std::vector<Cluster> clusters;
+        octomap_compare_.getClusters(&clusters);
 
         auto end = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> duration = end - start;

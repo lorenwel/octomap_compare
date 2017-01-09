@@ -12,6 +12,9 @@ class OctomapContainer : public ContainerBase {
   // Octomap.
   std::shared_ptr<octomap::OcTree> octree_;
 
+  // Robot frame observed points.
+  Matrix3xDynamic transformed_points_;
+
   /// \brief Processes octree to enable comparison.
   void processTree();
 
@@ -25,6 +28,8 @@ public:
   /// \brief Checks if voxel at point was observed. Also passes back pointer to node at point.
   bool isObserved(const Eigen::Vector3d& point, octomap::OcTreeNode** node) const;
 
+  /// \brief Set observed points transformed into spherical coordinates.
+  ///        Scaled with sensor uncertainty.
   void setSphericalScaled(const std::list<SphericalPoint>& spherical_points_scaled) {
     const size_t n_spherical = spherical_points_scaled.size();
     spherical_points_scaled_.resize(3, n_spherical);
@@ -38,12 +43,23 @@ public:
     }
   }
 
+  /// \brief Set observed points transformed into spherical coordinates.
   void setSpherical(const std::list<SphericalPoint>& spherical_points) {
     const size_t n_spherical = spherical_points.size();
     spherical_points_.resize(3, n_spherical);
     size_t counter = 0;
     for (auto&& point : spherical_points) {
       spherical_points_.col(counter++) = (Eigen::Vector3d)point;
+    }
+  }
+
+  /// \brief Set observed points transformed into robot frame.
+  void setTransformedPoints(const std::list<Eigen::Vector3d>& points) {
+    const size_t n_points = points.size();
+    transformed_points_.resize(3, n_points);
+    size_t counter = 0;
+    for (auto&& point: points) {
+      transformed_points_.col(counter++) = point;
     }
   }
 
@@ -55,6 +71,11 @@ public:
   /// \brief Used to check if OcTree is loaded.
   inline operator bool() const {
     return (bool)octree_;
+  }
+
+  /// \brief Returns transformed points.
+  inline const Matrix3xDynamic& TransformedPoints() const {
+    return transformed_points_;
   }
 
 };

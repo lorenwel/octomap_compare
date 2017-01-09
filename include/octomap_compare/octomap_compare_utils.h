@@ -52,6 +52,8 @@ struct ClusterPoint {
 struct Cluster {
   int id;
   std::vector<ClusterPoint> points;
+
+  Cluster(const int& id_) : id(id_) {}
 };
 
 static double getCompareDist(const Eigen::VectorXd& distances2,

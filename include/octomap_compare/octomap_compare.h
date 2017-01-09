@@ -28,9 +28,9 @@ public:
       min_pts(10),
       k_nearest_neighbor(1),
       show_unobserved_voxels(true), 
-      show_outliers(true),
       distance_computation("max"), 
       color_changes(true), 
+      show_outliers(true),
       perform_icp(true) {}
 
     // Distance value used as maximum for voxel coloring in visualization.
@@ -83,11 +83,13 @@ private:
   Eigen::Affine3d T_base_comp_;
   Eigen::Affine3d T_comp_base_;
 
-  std::list<std::pair<size_t, double>> base_index_to_distances_;
+  std::unordered_map<size_t, double> base_index_to_distances_;
   std::list<std::pair<size_t, int>> base_index_to_cluster_;
   std::list<size_t> base_unobserved_points_;
+  // Index coversion from all map points to observed points.
+  std::unordered_map<size_t, size_t> base_ind_conv_;
 
-  std::list<std::pair<size_t, double>> comp_index_to_distances_;
+  std::unordered_map<size_t, double> comp_index_to_distances_;
   std::list<std::pair<size_t, int>> comp_index_to_cluster_;
   std::list<size_t> comp_unobserved_points_;
 
@@ -103,7 +105,6 @@ private:
   double compareForward(PointCloudContainer& compare_container);
 
   /// \brief Get changes with distances from base voxel to closest comp voxel.
-//  template<typename ContainerType>
   double compareBackward(const PointCloudContainer& compare_container);
 
   /// \brief Get transform to align octomaps.
@@ -146,13 +147,18 @@ public:
                Eigen::Matrix<double, 4, 4>* T_initial);
 
   /// \brief Save result of clustering to file for evaluation in MATLAB.
-  void saveClusterResultToFile(const std::string& filename, ClusterCentroidVector* cluster_centroids);
+  ///        Very inefficient! Do not use except for debugging.
+  void saveClusterResultToFile(const std::string& filename,
+                               ClusterCentroidVector* cluster_centroids);
 
-  /// \brief Get the changes as point cloud. Color indicates cluster.
-  void getChanges(pcl::PointCloud<pcl::PointXYZRGB>* cloud);
+  /// \brief Get the change candidates as point cloud in map frame. Color indicates cluster.
+  void getChangeCandidates(pcl::PointCloud<pcl::PointXYZRGB>* cloud);
 
   /// \brief Get a point cloud visualizing the comparison result.
   void getDistanceHeatMap(pcl::PointCloud<pcl::PointXYZRGB>* distance_point_cloud);
+
+  /// \brief Get the clusters after doing compare.
+  void getClusters(std::vector<Cluster>* clusters);
 };
 
 #endif // OCTOMAP_COMPARE_H_

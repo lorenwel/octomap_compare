@@ -4,8 +4,8 @@
 
 template <typename T>
 size_t writeVectorToOpenCvMatrix(const std::vector<T>& vec,
-                               cv::Mat* mat,
-                               const size_t& mat_start_ind = 0) {
+                                 cv::Mat* mat,
+                                 const size_t& mat_start_ind = 0) {
   for (size_t i = 0; i < vec.size(); ++i) {
     mat->at<T>(0, i + mat_start_ind) = vec[i];
   }
@@ -128,9 +128,9 @@ std::pair<double, double> FeatureExtractor::getDensities(Eigen::MatrixXd points,
   const double r3 = dist_from_mean.maxCoeff();
   const double density_vol = n_points / (4/3*M_PI*r3*r3*r3);
 
-  const Eigen::VectorXd scalar_products = points.transpose() * normal;
+  const Eigen::RowVectorXd scalar_products = normal.transpose() * points;
   const Eigen::MatrixXd surface_offset =
-      scalar_products.transpose().replicate(3,1).cwiseProduct(normal.replicate(1, n_points));
+      scalar_products.replicate(3,1).cwiseProduct(normal.replicate(1, n_points));
   const Eigen::MatrixXd projected = points - surface_offset;
   const Eigen::VectorXd dist_from_center = projected.colwise().norm();
   const double r2 = dist_from_center.maxCoeff();
