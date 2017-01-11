@@ -72,24 +72,24 @@ void OctomapCompare::compare(PointCloudContainer &compare_container,
   std::cout << "Comparing...\n";
   Reset();
 
-  Timer icp_timer("ICP");
+  Timer icp_timer("compare/icp");
   // Do ICP.
   getTransformFromICP(compare_container, T_initial);  
   icp_timer.stop();
 
   // Compare backwards first so we fill its spherical point matrix.
   std::cout << "Comparing backward...\n";
-  Timer back_timer("Backwards");
+  Timer back_timer("compare/backwards");
   base_max_dist_ = compareBackward(compare_container);
   back_timer.stop();
 
   std::cout << "Comparing forward...\n";
-  Timer forward_timer("Forward");
+  Timer forward_timer("compare/forward");
   comp_max_dist_ = compareForward(compare_container);
   forward_timer.stop();
 
   // Apply threshold and cluster.
-  Timer change_timer("Changes");
+  Timer change_timer("compare/changes");
   computeChanges();
   change_timer.stop();
 
@@ -459,7 +459,7 @@ void OctomapCompare::getChangeCandidates(pcl::PointCloud<pcl::PointXYZRGB>* clou
   }
   cluster_indices.clear();
   color.r = 255; color.g = 0; color.b = 0;
-  for (const auto& ind_cluster : base_index_to_cluster_) {
+  for (const auto& ind_cluster: base_index_to_cluster_) {
     const auto success = cluster_indices.insert(ind_cluster.second);
     // Generate color if it is new cluster.
     if (success.second) {
@@ -486,7 +486,7 @@ void OctomapCompare::getChangeCandidates(pcl::PointCloud<pcl::PointXYZRGB>* clou
   // Build point cloud.
   pcl::PointXYZRGB point;
   Eigen::Vector3d eigen_point;
-  for (const auto& ind_cluster : comp_index_to_cluster_) {
+  for (const auto& ind_cluster: comp_index_to_cluster_) {
     if (params_.show_outliers || ind_cluster.second != 0) {
       color = color_map_appear[ind_cluster.second];
       eigen_point = T_base_comp_ * Eigen::Vector3d(

@@ -6,7 +6,7 @@ find_package(OpenCV 2 REQUIRED)
 
 catkin_simple(ALL_DEPS_REQUIRED)
 
-add_definitions(-std=c++11 -g)
+add_definitions(-std=c++11)
 
 cs_add_library(${PROJECT_NAME}
                src/octomap_compare.cc

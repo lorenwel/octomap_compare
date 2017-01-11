@@ -12,7 +12,9 @@
 #include <glog/logging.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
+#include <pcl_conversions/pcl_conversions.h>
 #include <pointmatcher/PointMatcher.h>
+#include <ros/ros.h>
 
 typedef PointMatcher<double> PM;
 typedef Eigen::Matrix<double, 3, Eigen::Dynamic> Matrix3xDynamic;
@@ -57,6 +59,43 @@ struct Cluster {
 
   Cluster(const int& id_) : id(id_) {}
 };
+
+static void applyColorToPoint(const pcl::RGB& color, pcl::PointXYZRGB& point) {
+  point.r = color.r;
+  point.g = color.g;
+  point.b = color.b;
+}
+
+template <typename PointType>
+static void setXYZFromEigen(const Eigen::Vector3d& eigen, PointType& point) {
+  point.x = eigen(0);
+  point.y = eigen(1);
+  point.z = eigen(2);
+}
+
+static void clusterToPointCloud(const Cluster& cluster,
+                                pcl::PointCloud<pcl::PointXYZRGB>* cloud,
+                                const Eigen::Affine3d& transform = Eigen::Affine3d::Identity()) {
+  CHECK_NOTNULL(cloud)->clear();
+  pcl::PointXYZRGB point;
+  pcl::RGB color;
+  if (cluster.id > 0) {color.r = 0; color.g = 255; color.b = 0;}
+  else if (cluster.id < 0) {color.r = 255; color.g = 0; color.b = 0;}
+  else {color.r = 180; color.g = 180; color.b = 180;}
+  for (const ClusterPoint& cluster_point: cluster.points) {
+    setXYZFromEigen(transform * cluster_point.cartesian, point);
+    applyColorToPoint(color, point);
+    cloud->push_back(point);
+  }
+}
+
+inline pcl::RGB getColorFromIdSign(const int& id) {
+  pcl::RGB color;
+  if (id < 0) {color.r = 255; color.g = 0; color.b = 0;}
+  else if (id > 0) {color.r = 0; color.g = 255; color.b = 0;}
+  else {color.r = 180; color.g = 180; color.b = 180;}
+  return color;
+}
 
 static size_t sumOfEqualValues(const std::vector<bool>& vec1, const std::vector<bool>& vec2,
                         const bool& val1, const bool& val2) {
@@ -222,19 +261,6 @@ static double getCompareDist(const Eigen::VectorXd& distances2,
   dist -= correction;
   if (dist < 0) dist = 0;
   return dist;
-}
-
-static void applyColorToPoint(const pcl::RGB& color, pcl::PointXYZRGB& point) {
-  point.r = color.r;
-  point.g = color.g;
-  point.b = color.b;
-}
-
-template <typename PointType>
-static void setXYZFromEigen(const Eigen::Vector3d& eigen, PointType& point) {
-  point.x = eigen(0);
-  point.y = eigen(1);
-  point.z = eigen(2);
 }
 
 /// \brief Converts a 3xN Eigen matrix to a PointMatcher cloud.

@@ -1,3 +1,4 @@
+#include "octomap_compare/load_parameters.h"
 #include "octomap_compare/random_forest_classifier.h"
 
 #include <boost/filesystem.hpp>
@@ -36,33 +37,7 @@ int main(int argc, char** argv) {
 
   ros::NodeHandle nh("~");
 
-  RandomForestClassifier::Params params;
-
-  nh.param("classifier/histogram/min_val", params.histogram_params.min_val, params.histogram_params.min_val);
-  int n_bins(params.histogram_params.n_bins);
-  nh.param("classifier/histogram/n_bins", n_bins, n_bins);
-  params.histogram_params.n_bins = n_bins;
-  nh.param("classifier/histogram/bin_size", params.histogram_params.bin_size,
-                                 params.histogram_params.bin_size);
-
-  nh.param("classifier/probability_threshold", params.probability_threshold, params.probability_threshold);
-  nh.param("classifier/save_classifier_after_training", params.save_classifier_after_training,
-                                             params.save_classifier_after_training);
-  nh.param("classifier_file_name", params.classifier_file_name, params.classifier_file_name);
-  nh.param("classifier/roc_filename", params.roc_filename, params.roc_filename);
-
-  nh.param("classifier/rf_max_depth", params.rf_max_depth, params.rf_max_depth);
-  nh.param("classifier/rf_min_sample_ratio", params.rf_min_sample_ratio, params.rf_min_sample_ratio);
-  nh.param("classifier/rf_priors", params.rf_priors, params.rf_priors);
-  nh.param("classifier/rf_calc_var_importance", params.rf_calc_var_importance, params.rf_calc_var_importance);
-  nh.param("classifier/rf_use_surrogates", params.rf_use_surrogates, params.rf_use_surrogates);
-  nh.param("classifier/rf_n_active_vars", params.rf_n_active_vars, params.rf_n_active_vars);
-  nh.param("classifier/rf_max_num_of_trees", params.rf_max_num_of_trees, params.rf_max_num_of_trees);
-  nh.param("classifier/rf_accuracy", params.rf_accuracy, params.rf_accuracy);
-  // The following are not actually used by the random tree. Need to be set regardless.
-  nh.param("classifier/rf_regression_accuracy", params.rf_regression_accuracy, params.rf_regression_accuracy);
-  nh.param("classifier/rf_max_categories", params.rf_max_categories, params.rf_max_categories);
-
+  RandomForestClassifier::Params params = getRandomForestParams(nh);
 
   RandomForestClassifier classifier(params);
 

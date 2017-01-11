@@ -1,10 +1,13 @@
 #include "octomap_compare/random_forest_classifier.h"
 
+#include <chrono>
 #include <fstream>
 #include <numeric>
 
 RandomForestClassifier::RandomForestClassifier(const Params &params) :
-    params_(params), feature_extractor_(params.histogram_params) { }
+    params_(params), feature_extractor_(params.histogram_params) {
+  load(params_.classifier_file_name);
+}
 
 void RandomForestClassifier::classify(const std::vector<Cluster>& clusters,
                                       std::vector<bool>* labels) {
@@ -20,8 +23,8 @@ void RandomForestClassifier::classify(const std::vector<Cluster>& clusters,
     const double prob = rtrees_.predict_prob(features);
     if (prob > params_.probability_threshold) {
       labels->at(i) = true;
+      LOG(INFO) << "Cluster with id " << clusters[i].id << " classified dynamic.";
     }
-    LOG(INFO) << "Cluster with id " << clusters[i].id << " classified dynamic.";
   }
 }
 
@@ -65,7 +68,7 @@ void RandomForestClassifier::train(const std::vector<Cluster>& clusters,
       params_.rf_accuracy,
       CV_TERMCRIT_ITER+CV_TERMCRIT_EPS);
   LOG(INFO) << "Training....";
-  std::cout << "Training... (Choo-Choo)";  // Print to console to show that something's happening.
+  std::cout << "Training (Choo-Choo)... " << std::flush;  // Print to console to show that something's happening.
   rtrees_.train(features, CV_ROW_SAMPLE, cv_labels, cv::Mat(), cv::Mat(), cv::Mat(), cv::Mat(),
                 rtrees_params);
 //  rtrees_.train(features, CV_ROW_SAMPLE, cv_labels);
@@ -93,12 +96,17 @@ void RandomForestClassifier::test(const std::vector<Cluster>& clusters,
   cv::Mat features(1, FeatureExtractor::kNFeatures, CV_32FC1);
   std::vector<double> pred_prob(n_clusters);
 
+  auto start = std::chrono::high_resolution_clock::now();
+
   for (size_t i = 0; i < n_clusters; ++i) {
     // Get features.
     feature_extractor_.getClusterFeatures(clusters[i], &features);
     // Predict.
     pred_prob[i] = rtrees_.predict_prob(features);
   }
+
+  auto end = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double> duration = end - start;
 
   // Get ROC curve values.
   static constexpr unsigned int kNROCSteps = 100u;
@@ -131,6 +139,8 @@ void RandomForestClassifier::test(const std::vector<Cluster>& clusters,
     LOG(INFO) << roc_vec[i].first << " " << roc_vec[i].second;
   }
   LOG(INFO) << "Area under curve is " << area_under_curve << "\n";
+  LOG(INFO) << "Prediction took " << duration.count() * 1000 << "ms total -- "
+                                  << duration.count() * 1000 / n_clusters << "ms per prediction.";
 
   // Print current precision/recall.
   const std::vector<bool> cur_param_labels =

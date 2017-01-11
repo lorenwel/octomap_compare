@@ -11,6 +11,7 @@
 #include <tf_conversions/tf_eigen.h>
 
 #include "octomap_compare/file_writer.h"
+#include "octomap_compare/load_parameters.h"
 #include "octomap_compare/octomap_compare.h"
 #include "octomap_compare/octomap_compare_utils.h"
 
@@ -19,12 +20,15 @@ class Online {
   ros::NodeHandle nh_;
   ros::Subscriber cloud_sub_;
   ros::Subscriber transform_sub_;
+  ros::Publisher change_candidates_pub_;
   ros::Publisher changes_pub_;
-  ros::Publisher color_pub_;
+  ros::Publisher heat_map_pub_;
   tf::TransformListener tf_listener_;
 
   OctomapCompare octomap_compare_;
   OctomapCompare::CompareParams params_;
+
+  RandomForestClassifier classifier_;
 
   Eigen::Affine3d relocalization_transform_;
 
@@ -40,7 +44,8 @@ class Online {
     tf::StampedTransform T_temp;
     if (first_relocalization_received_) {
       try {
-        Timer init_timer("Init");
+        Timer pipeline_timer("pipeline");
+        Timer init_timer("init");
         tf_listener_.lookupTransform("map",
                                      cloud.header.frame_id,
                                      cloud.header.stamp,
@@ -52,38 +57,56 @@ class Online {
         PM::DataPoints intermediate_points =
             PointMatcher_ros::rosMsgToPointMatcherCloud<double>(cloud);
         Matrix3xDynamic points = pointMatcherToMatrix3dEigen(intermediate_points);
-
         init_timer.stop();
 
-        auto start = std::chrono::high_resolution_clock::now();
-
+        Timer compare_timer("compare");
         PointCloudContainer compare_container(points, params_.spherical_transform, params_.std_dev);
 
         octomap_compare_.compare(compare_container, &T_initial.matrix());
+        compare_timer.stop();
 
-        pcl::PointCloud<pcl::PointXYZRGB> changes_point_cloud;
-        octomap_compare_.getChangeCandidates(&changes_point_cloud);
+        pcl::PointCloud<pcl::PointXYZRGB> change_candidate_point_cloud;
+        octomap_compare_.getChangeCandidates(&change_candidate_point_cloud);
 
+        Timer cluster_extraction_timer("cluster_extraction");
         std::vector<Cluster> clusters;
         octomap_compare_.getClusters(&clusters);
+        cluster_extraction_timer.stop();
 
-        auto end = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> duration = end - start;
+        Timer classification_timer("classification");
+        std::vector<bool> labels;
+        classifier_.classify(clusters, &labels);
+        classification_timer.stop();
 
-        pcl::PointCloud<pcl::PointXYZRGB> distance_point_cloud;
-        octomap_compare_.getDistanceHeatMap(&distance_point_cloud);
+        // Publish changes. TODO: Make this a function'n'stuff.
+        pcl::PointCloud<pcl::PointXYZRGB> changes_point_cloud;
+        changes_point_cloud.header.frame_id = "map";
+        pcl::PointCloud<pcl::PointXYZRGB> temp_cloud;
+        for (size_t i = 0; i < clusters.size(); ++i) {
+          if (labels[i]) {
+            clusterToPointCloud(clusters[i], &temp_cloud, T_initial);
+            changes_point_cloud += temp_cloud;
+          }
+        }
 
-        color_pub_.publish(distance_point_cloud);
+        pcl::PointCloud<pcl::PointXYZRGB> heat_map_point_cloud;
+        octomap_compare_.getDistanceHeatMap(&heat_map_point_cloud);
+
+        heat_map_pub_.publish(heat_map_point_cloud);
+        change_candidates_pub_.publish(change_candidate_point_cloud);
         changes_pub_.publish(changes_point_cloud);
-        std::cout << "Comparing took " << duration.count() << " seconds\n";
 
-        // Correct relocalization transform.
+        // Correct relocalization transform with ICP transform change.
         relocalization_transform_ = T_initial * T_map_robot.inverse();
 
-        const std::string filename("/tmp/compare_output_" + std::to_string(n_printed_++) + ".csv");
-        ClusterCentroidVector cluster_centroids;
-        octomap_compare_.saveClusterResultToFile(filename, &cluster_centroids);
-        FileWriter(nh_, cluster_centroids, filename, cloud.header.stamp);
+        // This part is for labeling data. Stops the pipeline until there's user interaction.
+        // BE VERY WARY OF UNCOMMENTING THIS!
+//        const std::string filename("/tmp/compare_output_" + std::to_string(n_printed_++) + ".csv");
+//        ClusterCentroidVector cluster_centroids;
+//        octomap_compare_.saveClusterResultToFile(filename, &cluster_centroids);
+//        FileWriter(nh_, cluster_centroids, filename, cloud.header.stamp);
+
+        pipeline_timer.stop();
       }
       catch (tf::TransformException& e) {
         ROS_ERROR("Could not transform point cloud: %s", e.what());
@@ -109,10 +132,13 @@ public:
          const std::string& base_file,
          const std::string& cloud_topic,
          const OctomapCompare::CompareParams& params) :
-         nh_(nh), octomap_compare_(base_file, params), params_(params), n_printed_(0) {
+         nh_(nh), octomap_compare_(base_file, params), params_(params),
+         classifier_(getRandomForestParams(nh_)), n_printed_(0) {
     cloud_sub_ = nh_.subscribe(cloud_topic, 1, &Online::cloudCallback, this);
-    changes_pub_ = nh_.advertise<pcl::PointCloud<pcl::PointXYZ>>("changes", 1, true);
-    color_pub_ = nh_.advertise<pcl::PointCloud<pcl::PointXYZ>>("heat_map", 1, true);
+    change_candidates_pub_ =
+        nh_.advertise<pcl::PointCloud<pcl::PointXYZRGB> >("change_candidates", 1, true);
+    changes_pub_ = nh_.advertise<pcl::PointCloud<pcl::PointXYZRGB> >("changes", 1, true);
+    heat_map_pub_ = nh_.advertise<pcl::PointCloud<pcl::PointXYZRGB> >("heat_map", 1, true);
 
     relocalization_transform_ = Eigen::Affine3d::Identity();
     bool use_relocalization = false;
@@ -140,41 +166,14 @@ int main(int argc, char** argv) {
   ros::NodeHandle nh("~");
 
   // Get parameters.
-  OctomapCompare::CompareParams params;
-  nh.param("max_vis_dist", params.max_vis_dist, params.max_vis_dist);
-  nh.param("distance_threshold", params.distance_threshold, params.distance_threshold);
-  nh.param("eps", params.eps, params.eps);
-  nh.param("min_pts", params.min_pts, params.min_pts);
-  nh.param("k_nearest_neighbor", params.k_nearest_neighbor, params.k_nearest_neighbor);
-  nh.param("show_unobserved_voxels", params.show_unobserved_voxels, params.show_unobserved_voxels);
-  nh.param("show_outliers", params.show_outliers, params.show_outliers);
-  nh.param("distance_computation", params.distance_computation, params.distance_computation);
-  nh.param("color_changes", params.color_changes, params.color_changes);
-  nh.param("perform_icp", params.perform_icp, params.perform_icp);
-  nh.param("clustering_algorithm", params.clustering_algorithm, params.clustering_algorithm);
-  nh.param("clustering_space", params.clustering_space, params.clustering_space);
-//  nh.getParam("/laser_mapper/icp_configuration_file", params.icp_configuration_file);
-//  nh.getParam("/laser_mapper/icp_input_filters_file", params.icp_input_filters_file);
-//  nh.getParam("/laser_mapper/icp_input_filters_file", params.icp_base_filters_file);
-  std::vector<double> temp_transform({1, 0, 0, 0, 1, 0, 0, 0, 1});
-  nh.param("spherical_transform", temp_transform, temp_transform);
-  params.spherical_transform = Eigen::Matrix<double, 3, 3, Eigen::RowMajor>(temp_transform.data());
+  OctomapCompare::CompareParams params = getCompareParams(nh);
   std::string base_file;
   if (!nh.getParam("base_file", base_file)) {
-    ROS_ERROR("Did not find base file parameter");
-    return EXIT_FAILURE;
+    LOG(FATAL) << "Did not find base file parameter";
   }
   std::string cloud_topic;
   if (!nh.getParam("cloud_topic", cloud_topic)) {
     ROS_WARN("Did not find cloud_topic parameter. Set to \"/dynamic_point_cloud\"");
-  }
-  std::vector<double> std_dev_vec;
-  if (!nh.getParam("std_dev", std_dev_vec)) {
-    ROS_ERROR("No standard deviation specified");
-    return EXIT_FAILURE;
-  }
-  else {
-    params.std_dev = Eigen::Matrix<double, 3, 3, Eigen::RowMajor>(std_dev_vec.data());
   }
 
   Online online(nh, base_file, cloud_topic, params);

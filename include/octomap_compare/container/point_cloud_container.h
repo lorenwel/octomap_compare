@@ -9,8 +9,8 @@
 
 #include <sm/timing/Timer.hpp>
 
-typedef sm::timing::Timer Timer;
-//typedef sm::timing::DummyTimer Timer;
+//typedef sm::timing::Timer Timer;
+typedef sm::timing::DummyTimer Timer;
 
 static constexpr unsigned int kNPhi = 2880;
 static constexpr unsigned int kNTheta = 1440;
@@ -71,19 +71,19 @@ class PointCloudContainer : public ContainerBase {
     else if (cur_point(2) < min_z) min_z = cur_point(2);
   }
 
-  void saveSegmentation() {
-    std::ofstream outfile;
-    outfile.open("/tmp/segmentation.csv");
-    if (outfile.is_open()) {
-      for (const auto& row: segmentation_) {
-        for (const auto& val: row) {
-          outfile << val << ", ";
-        }
-        outfile << "\n";
-      }
-      outfile.close();
-    }
-  }
+//  void saveSegmentation() {
+//    std::ofstream outfile;
+//    outfile.open("/tmp/segmentation.csv");
+//    if (outfile.is_open()) {
+//      for (const auto& row: segmentation_) {
+//        for (const auto& val: row) {
+//          outfile << val << ", ";
+//        }
+//        outfile << "\n";
+//      }
+//      outfile.close();
+//    }
+//  }
 
   void processCloud() {
     const size_t n_points = occupied_points_.cols();
@@ -103,7 +103,7 @@ class PointCloudContainer : public ContainerBase {
     min_x -= offset; min_y -= offset; min_z -= offset;
 
     // Write Segmentation to file for debugging.
-    saveSegmentation();
+//    saveSegmentation();
 
     spherical_points_scaled_ = std_dev_inverse_ * spherical_points_;
   }
