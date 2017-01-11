@@ -1,44 +1,64 @@
 #ifndef OCTOMAP_COMPARE_RANDOM_FOREST_CLASSIFIER_H_
 #define OCTOMAP_COMPARE_RANDOM_FOREST_CLASSIFIER_H_
 
-#include "octomap_compare/octomap_compare_utils.h"
-
-#include <Eigen/Dense>
 #include <opencv2/core/core.hpp>
 #include <opencv2/ml/ml.hpp>
 
+#include "octomap_compare/feature_extractor.h"
 #include "octomap_compare/octomap_compare_utils.h"
 
-class FeatureExtractor {
-
+class RandomForestClassifier {
 public:
-  struct HistogramParams {
-    double min_val;
-    size_t n_bins;
-    double bin_size;
+  struct Params {
+    FeatureExtractor::HistogramParams histogram_params;
+    double probability_threshold;
+    bool save_classifier_after_training;
+    std::string classifier_file_name;
+    std::string roc_filename;
+
+    // OpenCv random forest parameters.
+    int rf_max_depth;
+    double rf_min_sample_ratio;
+    double rf_regression_accuracy;
+    bool rf_use_surrogates;
+    int rf_max_categories;
+    std::vector<double> rf_priors;
+    bool rf_calc_var_importance;
+    int rf_n_active_vars;
+    int rf_max_num_of_trees;
+    double rf_accuracy;
   };
 
 private:
 
-  const HistogramParams params_;
+  // Classifier parameters.
+  Params params_;
 
-  void getEigenvalueFeatures(Eigen::Vector3d eig,
-                             std::vector<double>* eigenvalue_features);
+  // Object to extract features from cluster points.
+  FeatureExtractor feature_extractor_;
 
-  // Counts number of occurences for every histogram bin. All values greater than the maximum
-  // that fits into the histogram are pooled into the last bin.
-  void getHistogram(const Cluster& cluster, std::vector<size_t>* histogram);
+  // Actual random forest classifier.
+  CvRTrees rtrees_;
 
-  // Returns density of points in <sphere around mean, circle around mean>.
-  std::pair<double, double> getDensities(Eigen::MatrixXd cartesian,
-                                         const Eigen::Vector3d& normal);
 
 public:
 
-  FeatureExtractor(const HistogramParams& params) : params_(params) {}
+  RandomForestClassifier(const Params& params);
 
-  void getClusterFeatures(const Cluster& cluster, cv::Mat* features);
+  /// \brief Classify clusters and return dynamic label.
+  void classify(const std::vector<Cluster>& cluster, std::vector<bool>* labels);
 
+  /// \brief Load Random Forest from file.
+  void load(const std::string& filename);
+
+  /// \brief Save current Random Forest to file.
+  void save(const std::string& filename) const;
+
+  /// \brief Train Random Forest using features constructed from clusters and labels.
+  void train(const std::vector<Cluster>& clusters, const std::vector<bool>& labels);
+
+  /// \brief Test classifier and write ROC curve to file.
+  void test(const std::vector<Cluster>& clusters, const std::vector<bool>& labels);
 };
 
 #endif /* OCTOMAP_COMPARE_RANDOM_FOREST_CLASSIFIER_H_ */

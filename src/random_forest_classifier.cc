@@ -1,172 +1,161 @@
 #include "octomap_compare/random_forest_classifier.h"
 
-#include <algorithm>
+#include <fstream>
+#include <numeric>
 
-template <typename T>
-size_t writeVectorToOpenCvMatrix(const std::vector<T>& vec,
-                                 cv::Mat* mat,
-                                 const size_t& mat_start_ind = 0) {
-  for (size_t i = 0; i < vec.size(); ++i) {
-    mat->at<T>(0, i + mat_start_ind) = vec[i];
-  }
-  return mat_start_ind + vec.size();
-}
+RandomForestClassifier::RandomForestClassifier(const Params &params) :
+    params_(params), feature_extractor_(params.histogram_params) { }
 
-size_t writeEigenVectorToOpenCvMatrix(const Eigen::VectorXd& vec,
-                                      cv::Mat* mat,
-                                      const size_t& mat_start_ind = 0) {
-  for (size_t i = 0; i < vec.size(); ++i) {
-    mat->at<double>(0, i + mat_start_ind) = vec(i);
-  }
-  return mat_start_ind + vec.size();
-}
+void RandomForestClassifier::classify(const std::vector<Cluster>& clusters,
+                                      std::vector<bool>* labels) {
+  const size_t n_clusters = clusters.size();
+  CHECK_NOTNULL(labels)->assign(n_clusters, false);
 
-void FeatureExtractor::getClusterFeatures(const Cluster& cluster, cv::Mat* features) {
-  CHECK_NOTNULL(features);
-  const size_t n_points = cluster.points.size();
-  CHECK_GT(n_points, 1) << "Cluster too small.";
+  cv::Mat features(1, FeatureExtractor::kNFeatures, CV_32FC1);;
 
-  Eigen::MatrixXd cartesian_mat(3, n_points);
-  Eigen::MatrixXd spherical_mat(3, n_points);
-  std::vector<double> distances(n_points,0);
-  double dist_mean = 0;
-
-  // Fill matrices
-  for (size_t i = 0; i < n_points; ++i) {
-    cartesian_mat.col(i) = cluster.points[i].cartesian;
-    spherical_mat.col(i) = cluster.points[i].spherical;
-    distances[i] = cluster.points[i].distance;
-    dist_mean += cluster.points[i].distance;
-  }
-  dist_mean /= n_points;
-
-  // Get means.
-  const Eigen::Vector3d cartesian_mean = cartesian_mat.rowwise().mean();
-  const Eigen::Vector3d spherical_mean = spherical_mat.rowwise().mean();
-
-  // Make matrices zero-mean for variance computation.
-  cartesian_mat -= cartesian_mean;
-  spherical_mat -= spherical_mean;
-
-  // Sort, so that we can acces min, max, median.
-  std::sort(distances.begin(), distances.end());
-
-  // Tensors for eigen value computation.
-  const Eigen::MatrixXd cartesian_tensor =  cartesian_mat * cartesian_mat.transpose();
-  const Eigen::MatrixXd spherical_tensor =  spherical_mat * spherical_mat.transpose();
-
-  // Compute eigen values. Cartesian eigen vectors needed for surface normal.
-  const Eigen::EigenSolver<Eigen::MatrixXd> cartesian_solver(cartesian_tensor, true);
-  const Eigen::EigenSolver<Eigen::MatrixXd> spherical_solver(spherical_tensor, false);
-
-  const Eigen::Vector3d cartesian_eigenvalues = cartesian_solver.eigenvalues().real();
-  const Eigen::Vector3d spherical_eigenvalues = spherical_solver.eigenvalues().real();
-  const Eigen::Matrix3d cartesian_eigen_vectors = cartesian_solver.eigenvectors().real();
-
-  // Compute sample variance.
-  const Eigen::Vector3d cartesian_variance = cartesian_tensor.diagonal() / (n_points - 1);
-  const Eigen::Vector3d spherical_variance = spherical_tensor.diagonal() / (n_points - 1);
-  double dist_variance = 0;
-  for (const auto& dist: distances) {
-    const double dist_dif = dist - dist_mean;
-    dist_variance += dist_dif * dist_dif;
-  }
-  dist_variance /= n_points - 1;
-
-  // Get surface normal.
-  size_t min_eig_ind, dummy;
-  cartesian_eigenvalues.minCoeff(&min_eig_ind, &dummy);
-  const Eigen::Vector3d surface_normal = cartesian_eigen_vectors.col(min_eig_ind);
-
-  // Compute surface normal features.
-  const double incident_angle =
-      fabs(acos(surface_normal.transpose() * cartesian_mean.normalized()));
-  const double surface_angle = atan2(sqrt(1 - surface_normal(2)), surface_normal(2));
-
-  // Get Eigenvalue features.
-  std::vector<double> eigenvalue_features;
-  getEigenvalueFeatures(cartesian_eigenvalues, &eigenvalue_features);
-
-  // Get histogram.
-  std::vector<size_t> histogram;
-  getHistogram(cluster, &histogram);
-
-  // Get densities.
-  const std::pair<double, double> densities = getDensities(cartesian_mat, surface_normal);
-  const std::vector<double> density_vec =
-      {densities.first/spherical_mean(2),
-       densities.second/spherical_mean(2)}; // Normalize density with range.
-
-  // Write features to matrix.
-  features->at<double>(0,0) = n_points;
-  features->at<double>(0,1) = distances.back() - distances.front(); // max dist diff
-  features->at<double>(0,2) = dist_mean;
-  features->at<double>(0,3) = dist_variance;
-  features->at<double>(0,4) = distances.front(); // min_distance
-  features->at<double>(0,5) = distances.back(); // max_distance
-  features->at<double>(0,6) = distances[distances.size()/2];  // median_distance
-  features->at<double>(0,7) = incident_angle;
-  features->at<double>(0,8) = surface_angle;
-  size_t cur_mat_index = 9;
-  cur_mat_index = writeEigenVectorToOpenCvMatrix(cartesian_eigenvalues, features, cur_mat_index);
-  cur_mat_index = writeEigenVectorToOpenCvMatrix(spherical_eigenvalues, features, cur_mat_index);
-  cur_mat_index = writeEigenVectorToOpenCvMatrix(cartesian_mean, features, cur_mat_index);
-  cur_mat_index = writeEigenVectorToOpenCvMatrix(spherical_mean, features, cur_mat_index);
-  cur_mat_index = writeEigenVectorToOpenCvMatrix(cartesian_variance, features, cur_mat_index);
-  cur_mat_index = writeEigenVectorToOpenCvMatrix(spherical_variance, features, cur_mat_index);
-  cur_mat_index = writeVectorToOpenCvMatrix(eigenvalue_features, features, cur_mat_index);
-  cur_mat_index = writeVectorToOpenCvMatrix(histogram, features, cur_mat_index);
-  cur_mat_index = writeVectorToOpenCvMatrix(density_vec, features, cur_mat_index);
-}
-
-std::pair<double, double> FeatureExtractor::getDensities(Eigen::MatrixXd points,
-                                                         const Eigen::Vector3d& normal) {
-  const size_t n_points = points.cols();
-  const Eigen::Vector3d mean = points.rowwise().mean();
-  points -= mean.replicate(1, n_points);
-  const Eigen::VectorXd dist_from_mean = points.colwise().norm();
-  const double r3 = dist_from_mean.maxCoeff();
-  const double density_vol = n_points / (4/3*M_PI*r3*r3*r3);
-
-  const Eigen::RowVectorXd scalar_products = normal.transpose() * points;
-  const Eigen::MatrixXd surface_offset =
-      scalar_products.replicate(3,1).cwiseProduct(normal.replicate(1, n_points));
-  const Eigen::MatrixXd projected = points - surface_offset;
-  const Eigen::VectorXd dist_from_center = projected.colwise().norm();
-  const double r2 = dist_from_center.maxCoeff();
-  const double density_surf = n_points / (M_PI*r2*r2);
-
-  return std::make_pair(density_vol, density_surf);
-}
-
-void FeatureExtractor::getHistogram(const Cluster& cluster,
-                                          std::vector<size_t>* histogram) {
-  CHECK_NOTNULL(histogram);
-  histogram->assign(params_.n_bins, 0);
-
-  size_t ind;
-  for (auto&& point: cluster.points) {
-    if (point.distance >= params_.min_val) {
-      ind = (point.distance - params_.min_val) / params_.bin_size;
-      if (ind > params_.n_bins) ind = params_.n_bins;
-      ++(histogram->at(ind));
+  for (size_t i = 0; i < n_clusters; ++i) {
+    // Get features.
+    feature_extractor_.getClusterFeatures(clusters[i], &features);
+    // Classify.
+    const double prob = rtrees_.predict_prob(features);
+    if (prob > params_.probability_threshold) {
+      labels->at(i) = true;
     }
+    LOG(INFO) << "Cluster with id " << clusters[i].id << " classified dynamic.";
   }
 }
 
-void FeatureExtractor::getEigenvalueFeatures(Eigen::Vector3d eig,
-                                             std::vector<double>* eigenvalue_features) {
-  CHECK_NOTNULL(eigenvalue_features)->clear();
-  std::sort(eig.data(), eig.data() + 3, std::greater<double>());  // Sort descending.
-  eig /= eig.sum(); // Normalize.
-  eigenvalue_features->push_back((eig(1) - eig(2)) / eig(1)); // linearity
-//  eigenvalue_features->push_back((eig(2) - eig(3)) / eig(1)); // planarity
-//  eigenvalue_features->push_back(eig(3) / eig(1));  // scattering
-  eigenvalue_features->push_back(pow(eig.prod(), 1/3)); // omnivariance
-//  eigenvalue_features->push_back((eig(1) - eig(3)) / eig(1)); // anisotrophy
-//  eigenvalue_features->push_back(-(eig.array() * eig.array().log()).sum()); // eigenentropy
-  eigenvalue_features->push_back(eig(3)); // change_of_curvature
+void RandomForestClassifier::load(const std::string &filename) {
+  LOG(INFO)<< "Loading classifier from: " << filename << ".";
+  rtrees_.load(filename.c_str());
+}
 
-  // Commented features have shown to be counterproductive in MATLAB.
-  // They're still here in case that changes with OpenCV.
+void RandomForestClassifier::save(const std::string &filename) const {
+  LOG(INFO)<< "Saving classifier to: " << filename << ".";
+  rtrees_.save(filename.c_str());
+}
+
+void RandomForestClassifier::train(const std::vector<Cluster>& clusters,
+                                   const std::vector<bool> &labels) {
+  CHECK_EQ(clusters.size(), labels.size()) << "Training data and labels have different size.";
+  CHECK_NE(labels.size(), 0) << "Got empty training labels.";
+  CHECK_GT(sumOfEqualValues(labels, true), 0) << "Training data has no positive labels.";
+  CHECK_GT(sumOfEqualValues(labels, false), 0) << "Training data has no negative labels.";
+
+  const size_t n_clusters = clusters.size();
+  cv::Mat features(n_clusters, FeatureExtractor::kNFeatures, CV_32FC1);
+  LOG(INFO) << "Input is " << n_clusters << " training samples.";
+
+  // Get features.
+  feature_extractor_.getClusterFeatures(clusters, &features);
+
+  // Write labels to OpenCV matrix.
+  cv::Mat cv_labels(n_clusters, 1, CV_32SC1);
+  for (size_t i = 0; i < n_clusters; ++i) {
+    cv_labels.at<int>(i,0) = (int)labels[i];
+  }
+
+  // Create parameter object.
+  const float priors[] = { params_.rf_priors[0], params_.rf_priors[1] };
+  CvRTParams rtrees_params = CvRTParams(
+      params_.rf_max_depth, params_.rf_min_sample_ratio * n_clusters,
+      params_.rf_regression_accuracy, params_.rf_use_surrogates,
+      params_.rf_max_categories, priors, params_.rf_calc_var_importance,
+      params_.rf_n_active_vars, params_.rf_max_num_of_trees,
+      params_.rf_accuracy,
+      CV_TERMCRIT_ITER+CV_TERMCRIT_EPS);
+  LOG(INFO) << "Training....";
+  std::cout << "Training... (Choo-Choo)";  // Print to console to show that something's happening.
+  rtrees_.train(features, CV_ROW_SAMPLE, cv_labels, cv::Mat(), cv::Mat(), cv::Mat(), cv::Mat(),
+                rtrees_params);
+//  rtrees_.train(features, CV_ROW_SAMPLE, cv_labels);
+
+  if (params_.save_classifier_after_training) save(params_.classifier_file_name);
+
+}
+
+std::vector<bool> probGreaterThan(const std::vector<double>& probabilities,
+                                  const double& prob_threshold) {
+  const size_t vec_size = probabilities.size();
+  std::vector<bool> result(vec_size);
+  for (size_t i = 0; i < vec_size; ++i) {
+    result[i] = probabilities[i] > prob_threshold;
+  }
+  return result;
+}
+
+void RandomForestClassifier::test(const std::vector<Cluster>& clusters,
+                                  const std::vector<bool>& labels) {
+  const size_t n_clusters = clusters.size();
+  CHECK_GT(sumOfEqualValues(labels, true), 0) << "Test data has no positive labels.";
+  CHECK_GT(sumOfEqualValues(labels, false), 0) << "Test data has no negative labels.";
+
+  cv::Mat features(1, FeatureExtractor::kNFeatures, CV_32FC1);
+  std::vector<double> pred_prob(n_clusters);
+
+  for (size_t i = 0; i < n_clusters; ++i) {
+    // Get features.
+    feature_extractor_.getClusterFeatures(clusters[i], &features);
+    // Predict.
+    pred_prob[i] = rtrees_.predict_prob(features);
+  }
+
+  // Get ROC curve values.
+  static constexpr unsigned int kNROCSteps = 100u;
+  static constexpr float kROCResolution = 1.0 / kNROCSteps;
+  std::vector<std::pair<float, float> > roc_vec(kNROCSteps);
+  roc_vec.front() = std::make_pair(1.0, 1.0);
+  roc_vec.back() = std::make_pair(0.0, 0.0);
+  float area_under_curve = 0;
+  float best_threshold = 0;
+  float max_accuracy = 0;
+  for (size_t i = 1; i < kNROCSteps - 1u; ++i) {
+    // Get false pos and true pos.
+    const std::vector<bool> pred_labels = probGreaterThan(pred_prob, kROCResolution*i);
+    roc_vec[i] = getFalsePosAndTruePos(pred_labels, labels);
+
+    // Update best threshold.
+    const float accuracy = -roc_vec[i].first + roc_vec[i].second;
+    if (accuracy > max_accuracy) {
+      max_accuracy = accuracy;
+      best_threshold = kROCResolution*i;
+    }
+
+    // Compute area under curve increment.
+    const float delta_x = roc_vec[i-1].first - roc_vec[i].first;
+    const float y_val = (roc_vec[i-1].second + roc_vec[i].second) / 2;
+    CHECK(delta_x >= 0) << "Something went wrong computing area under curve increment.";
+    if (delta_x > 0) {
+      area_under_curve += y_val * delta_x;
+    }
+    LOG(INFO) << roc_vec[i].first << " " << roc_vec[i].second;
+  }
+  LOG(INFO) << "Area under curve is " << area_under_curve << "\n";
+
+  // Print current precision/recall.
+  const std::vector<bool> cur_param_labels =
+      probGreaterThan(pred_prob, params_.probability_threshold);
+  std::pair<float, float> prec_rec = getPrecisionAndRecall(cur_param_labels, labels);
+  LOG(INFO) << "Precision/Recall for current threshold " << params_.probability_threshold
+            << " is " << prec_rec.first << "/" << prec_rec.second << "\n";
+
+  // Print best precision/recall.
+  const std::vector<bool> best_param_labels =
+      probGreaterThan(pred_prob, best_threshold);
+  std::pair<float, float> best_prec_rec = getPrecisionAndRecall(best_param_labels, labels);
+  LOG(INFO) << "Precision/Recall for best threshold " << best_threshold
+            << " is " << best_prec_rec.first << "/" << best_prec_rec.second << "\n";
+
+  // Write ROC curve to file.
+  std::ofstream file;
+  file.open(params_.roc_filename);
+  if (file.is_open()) {
+    for (const auto& prec_rec: roc_vec) {
+      file << prec_rec.first << ", " << prec_rec.second << "\n";
+    }
+    file.close();
+  }
+  else {
+    LOG(ERROR) << "Could not open file " << params_.roc_filename << ".";
+  }
 }

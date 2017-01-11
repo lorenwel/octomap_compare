@@ -1,6 +1,8 @@
 #ifndef OCTOMAP_COMPARE_UTILS_H_
 #define OCTOMAP_COMPARE_UTILS_H_
 
+#include <list>
+#include <fstream>
 #include <iostream>
 #include <unordered_map>
 #include <unordered_set>
@@ -55,6 +57,150 @@ struct Cluster {
 
   Cluster(const int& id_) : id(id_) {}
 };
+
+static size_t sumOfEqualValues(const std::vector<bool>& vec1, const std::vector<bool>& vec2,
+                        const bool& val1, const bool& val2) {
+  CHECK_EQ(vec1.size(), vec2.size()) << "Vectors have different length.";
+  const size_t vec_size = vec1.size();
+  size_t sum = 0;
+  for (size_t i = 0; i < vec_size; ++i) {
+    if (vec1[i] == val1 && vec2[i] == val2) ++sum;
+  }
+  LOG_IF(WARNING, sum == 0) << val1 << " " << val2 << " has sum 0.";
+  return sum;
+}
+
+static size_t sumOfEqualValues(const std::vector<bool>& vec, const bool& val) {
+  const size_t vec_size = vec.size();
+  size_t sum = 0;
+  for (size_t i = 0; i < vec_size; ++i) {
+    if (vec[i] == val) ++sum;
+  }
+  LOG_IF(WARNING, sum == 0) << val << " has sum 0.";
+  return sum;
+}
+
+static std::pair<float, float> getFalsePosAndTruePos(const std::vector<bool>& pred_labels,
+                                              const std::vector<bool>& true_labels) {
+  CHECK_EQ(pred_labels.size(), true_labels.size()) << "Vectors have different length.";
+  const float n_true_pos = sumOfEqualValues(pred_labels, true_labels, true, true);
+  const float n_true_neg = sumOfEqualValues(pred_labels, true_labels, false, false);
+  const float n_false_pos = sumOfEqualValues(pred_labels, true_labels, true, false);
+  const float n_false_neg = sumOfEqualValues(pred_labels, true_labels, false, true);
+  return std::make_pair(n_false_pos / (n_false_pos + n_true_neg), // FalsePos.
+                        n_true_pos / (n_true_pos + n_false_neg));  // TruePos.
+}
+
+static std::pair<float, float> getPrecisionAndRecall(const std::vector<bool>& pred_labels,
+                                              const std::vector<bool>& true_labels) {
+  CHECK_EQ(pred_labels.size(), true_labels.size()) << "Vectors have different length.";
+  const float n_pos = sumOfEqualValues(true_labels, true);
+  const float n_neg = sumOfEqualValues(true_labels, false);
+  const float n_true_pos = sumOfEqualValues(pred_labels, true_labels, true, true);
+  const float n_false_pos = sumOfEqualValues(pred_labels, true_labels, true, false);
+  const float n_false_neg = sumOfEqualValues(pred_labels, true_labels, false, true);
+  return std::make_pair(n_true_pos/n_pos / (n_true_pos/n_pos + n_false_pos/n_neg),  // Precision.
+                        n_true_pos / (n_true_pos + n_false_neg)); // Recall.
+}
+
+inline double getNextVal(std::stringstream& stream) {
+  CHECK(stream.good()) << "Stream is broken, can't read next value.";
+  std::string val;
+  std::getline(stream, val, ',');
+  return std::stof(val);
+}
+
+static bool parseCsvToCluster(const std::string& file_name,
+                              std::vector<Cluster>* clusters,
+                              std::vector<bool>* labels) {
+  CHECK_NOTNULL(clusters)->clear();
+  CHECK_NOTNULL(labels)->clear();
+  std::ifstream file;
+  std::list<std::pair<ClusterPoint, int> > points_with_id;
+  ClusterPoint point;
+  int id;
+
+  file.open(file_name);
+  if (!file.is_open()) {
+    LOG(ERROR) << "Could not open file: " << file_name;
+    return false;
+  }
+  LOG(INFO) << "Opened file \"" << file_name << "\".";
+
+  std::string line;
+  std::stringstream stream;
+  std::unordered_set<int> dynamic_clusters;
+  // Go through lines until we get values.
+  while (file.peek() == 'x') {
+    std::getline(file, line);
+  }
+  while (std::getline(file, line)) {
+    // Check if we reached end of file and should read dynamic cluster.
+    if (line.size() <= 1) {
+      std::getline(file, line);
+      stream.clear();
+      stream.str(line);
+      std::string val;
+      while (std::getline(stream, val, ',')) {
+        LOG(INFO) << "Trying to read cluster from " << val << ".";
+        // Check if this was the trailing comma.
+        if (val != " ") dynamic_clusters.insert(std::stod(val));
+      }
+      // Terminate loop.
+      break;
+    }
+    // Extract line.
+    stream.clear();
+    stream.str(line);
+    point.cartesian(0) = getNextVal(stream);
+    point.cartesian(1) = getNextVal(stream);
+    point.cartesian(2) = getNextVal(stream);
+    point.spherical(0) = getNextVal(stream);
+    point.spherical(1) = getNextVal(stream);
+    point.spherical(2) = getNextVal(stream);
+    point.distance = getNextVal(stream);
+    // TODO: Check if the following really works. It should but is probabliy inefficient;
+    id = getNextVal(stream);
+    points_with_id.push_back(std::make_pair(point, id));
+
+//    LOG(INFO) << "Line read " << point.cartesian(0) << " "
+//                              << point.cartesian(1) << " "
+//                              << point.cartesian(2) << " "
+//                              << point.spherical(0) << " "
+//                              << point.spherical(1) << " "
+//                              << point.spherical(2) << " "
+//                              << point.distance << " " << id << ".";
+  }
+  file.close();
+
+  // Find all cluster ids.
+  std::unordered_set<int> cluster_ids;
+  for (const auto& point_id: points_with_id) {
+    cluster_ids.insert(point_id.second);
+  }
+
+  // Create clusters.
+  std::unordered_map<int, size_t> id_to_ind;
+  for (const int& cur_id: cluster_ids) {
+    id_to_ind[cur_id] = clusters->size();
+    clusters->push_back(Cluster(cur_id));
+    if (dynamic_clusters.count(cur_id)) labels->push_back(true);
+    else labels->push_back(false);
+  }
+  CHECK_EQ(clusters->size(), labels->size()) << "Labels and clusters dont't have same size.";
+
+  // Fill clusters.
+  for (const auto& point_id: points_with_id) {
+    clusters->at(id_to_ind[point_id.second]).points.push_back(point_id.first);
+  }
+
+  // Print cluster sizes.
+  for (const auto& cluster: *clusters) {
+    LOG(INFO) << "Cluster " << cluster.id << " has " << cluster.points.size() << " points.";
+  }
+
+  return true;
+}
 
 static double getCompareDist(const Eigen::VectorXd& distances2,
                              const std::string& dist_metric = "max",

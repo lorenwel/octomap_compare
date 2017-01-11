@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<launch>
+
+  <!-- Octomap compare node -->
+  <node name="train_node" pkg="octomap_compare" type="train_node" output="screen" args="/home/lorenwel/Documents/change_csv/csv/delta_2 /home/lorenwel/Documents/change_csv/csv/delta_5_1" >
+    <rosparam command="load" file="$(find octomap_compare)/launch/compare_params.yaml"/>
+    <param name="classifier_file_name" value="$(find octomap_compare)/launch/random_forest_classifier.xml" />
+  </node>
+
+</launch>

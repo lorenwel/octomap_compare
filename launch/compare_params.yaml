@@ -10,14 +10,14 @@ k_nearest_neighbor: 2 # number of neighbors to use for distance computation
 distance_computation: "max"   # options are "min", "mean", "max", applied to result of knn search
 # clustering parameter
 clustering_algorithm: "hdbscan"  # valid are "dbscan" and "hdbscan"
-clustering_space: "spherical" # which coordinate space to use for clustering. "cartesian", "spherica", "spherical_scaled"
+clustering_space: "cartesian" # which coordinate space to use for clustering. "cartesian", "spherica", "spherical_scaled"
 min_pts: 10 # number of points in neighborhood to be considered a cluster base point. 'dbscan' and 'hdbscan'
 eps: 0.3  # distance for other points to be considered neighbors. 'dbscan' only
 # visualization parameter
 show_unobserved_voxels: false  # show unobserved voxels/points in distance heat map
 show_outliers: true  # show unobserved voxels/points in distance heat map
 color_changes: true  # color changes based on them appearing/disappearing
-max_vis_dist: 0.0 # max distance for heat map color. Setting 0 uses maximum distance of distance computation
+max_vis_dist: 4.0 # max distance for heat map color. Setting 0 uses maximum distance of distance computation
 # mahalanobis distance
 # std_dev: [0.035, 0, 0,
 #           0, 0.004, 0,
@@ -29,3 +29,27 @@ spherical_transform: [0, 1, 0,
                       0, 0, 1,
                       1, 0, 0]  # transform from laser coordinate from to one that has z as laser rotation axis
 use_relocalization: true
+
+classifier: {
+  histogram: {
+    min_val: 2, # minimum value of histogram
+    n_bins: 10,   # number of bins
+    bin_size: 0.8  # size of bins
+  },
+
+  probability_threshold: 0.5, # probability threshold above which to mark labels positive
+  save_classifier_after_training: true,   # save the classifier to file after training
+  roc_filename: "/tmp/roc_values.csv",  # where to save the roc values after testing
+
+  rf_max_depth: 40, # maximum depth of decision tree / opencv default: 5
+  rf_min_sample_ratio: 0.01,  # minimum samples required at a leaf node for it to be split
+  rf_priors: [0.5, 0.5],  # prior on class label probability / opencv default: 0
+  rf_calc_var_importance: false, # compute variable importance / opencv default: false
+  rf_use_surrogates: false,  # use surrogate splits for missing data to compute variable importance correctly / opencv default: false
+  rf_n_active_vars: 0,  # size of randomly selected subset of features. setting 0 uses sqrt(n_samples). / opencv default: 0
+  rf_max_num_of_trees: 120, # maximum number of trees in forest. / opencv default: 50
+  rf_accuracy: 0.01,  # sufficient accuracy. / opencv default: 0.1
+  # not used in 2-class classification. need to be set regardless:
+  rf_regression_accuracy: 0.0, # termination criteria for regression trees / opencv default: 0
+  rf_max_categories: 10  # cluster values into k <= rf_max_categories categories. / opencv default: 10
+}

@@ -6,17 +6,21 @@ find_package(OpenCV 2 REQUIRED)
 
 catkin_simple(ALL_DEPS_REQUIRED)
 
-add_definitions(-std=c++11)
+add_definitions(-std=c++11 -g)
 
 cs_add_library(${PROJECT_NAME}
                src/octomap_compare.cc
                src/octomap_container.cc
                src/random_forest_classifier.cc
+               src/feature_extractor.cc
                src/file_writer.cc)
 target_link_libraries(${PROJECT_NAME} ${OpenCV_LIBS})
 
 cs_add_executable(octomap_compare_online_node src/octomap_compare_online_node.cc)
 target_link_libraries(octomap_compare_online_node ${PROJECT_NAME})
+
+cs_add_executable(train_node src/train_node.cc)
+target_link_libraries(train_node ${PROJECT_NAME})
 
 #add_doxygen(NOT_AUTOMATIC)
 
