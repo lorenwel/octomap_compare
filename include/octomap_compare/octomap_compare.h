@@ -67,6 +67,8 @@ public:
     // File for ICP input filters.
     std::string icp_input_filters_file;
     std::string icp_base_filters_file;
+    // Filter parameters.
+    double filter_resolution;
   };
 
 private:

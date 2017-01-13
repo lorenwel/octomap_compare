@@ -87,11 +87,52 @@ std::vector<bool> probGreaterThan(const std::vector<double>& probabilities,
   return result;
 }
 
+inline double getMaxClusterDist(const Cluster& cluster) {
+  double max_dist = 0;
+  for (const ClusterPoint& point: cluster.points) {
+    if (point.distance > max_dist) max_dist = point.distance;
+  }
+  return max_dist;
+}
+
+inline double getMinClusterDist(const Cluster& cluster) {
+  double min_dist = std::numeric_limits<double>::max();
+  for (const ClusterPoint& point: cluster.points) {
+    if (point.distance < min_dist) min_dist = point.distance;
+  }
+  return min_dist;
+}
+
+inline double getMeanClusterDist(const Cluster& cluster) {
+  double mean = 0;
+  for (const ClusterPoint& point: cluster.points) {
+    mean += point.distance;
+  }
+  mean /= cluster.points.size();
+  return mean;
+}
+
+void printCompROC(const std::vector<Cluster>&clusters, const std::vector<bool>& labels) {
+  std::ofstream file;
+  file.open("/tmp/comp_heat_vals.csv");
+  CHECK(file.is_open()) << "Could not open file.";
+  size_t i = 0;
+  for (const Cluster& cluster: clusters) {
+    file << getMinClusterDist(cluster) << ", "
+         << getMeanClusterDist(cluster) << ", "
+         << getMaxClusterDist(cluster) << ", "
+         << labels[i++] << "\n";
+  }
+  file.close();
+}
+
 void RandomForestClassifier::test(const std::vector<Cluster>& clusters,
                                   const std::vector<bool>& labels) {
   const size_t n_clusters = clusters.size();
+  CHECK_EQ(clusters.size(), labels.size()) << "Clusters and labels have different size.";
   CHECK_GT(sumOfEqualValues(labels, true), 0) << "Test data has no positive labels.";
   CHECK_GT(sumOfEqualValues(labels, false), 0) << "Test data has no negative labels.";
+  printCompROC(clusters, labels);
 
   cv::Mat features(1, FeatureExtractor::kNFeatures, CV_32FC1);
   std::vector<double> pred_prob(n_clusters);

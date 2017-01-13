@@ -15,7 +15,7 @@
   <node name="octomap_compare" pkg="octomap_compare" type="octomap_compare_online_node" output="screen">
     <rosparam command="load" file="$(find octomap_compare)/launch/compare_params.yaml"/>
     <param name="cloud_topic" value="/ground_segmentation/obstacle_cloud" />
-    <param name="base_file" value="/home/lorenwel/data/octomaps/powerplant/delta_5_1.bt" />
+    <param name="base_file" value="$(find segmatch_launchers)/demonstration_files/powerplant/octomaps/delta_5_1_track_07_04.bt" />
     <param name="classifier_file_name" value="$(find octomap_compare)/launch/random_forest_classifier.xml" />
   </node>
 

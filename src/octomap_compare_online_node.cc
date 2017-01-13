@@ -10,6 +10,7 @@
 #include <tf/transform_listener.h>
 #include <tf_conversions/tf_eigen.h>
 
+#include "octomap_compare/change_map.h"
 #include "octomap_compare/file_writer.h"
 #include "octomap_compare/load_parameters.h"
 #include "octomap_compare/octomap_compare.h"
@@ -23,6 +24,7 @@ class Online {
   ros::Publisher change_candidates_pub_;
   ros::Publisher changes_pub_;
   ros::Publisher heat_map_pub_;
+  ros::Publisher change_map_pub_;
   tf::TransformListener tf_listener_;
 
   OctomapCompare octomap_compare_;
@@ -31,6 +33,8 @@ class Online {
   RandomForestClassifier classifier_;
 
   Eigen::Affine3d relocalization_transform_;
+
+  ChangeMap<pcl::PointXYZRGB> change_map_;
 
   size_t n_printed_;
 
@@ -79,15 +83,16 @@ class Online {
         classification_timer.stop();
 
         // Publish changes. TODO: Make this a function'n'stuff.
-        pcl::PointCloud<pcl::PointXYZRGB> changes_point_cloud;
-        changes_point_cloud.header.frame_id = "map";
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr changes_point_cloud(new pcl::PointCloud<pcl::PointXYZRGB>());
+        changes_point_cloud->header.frame_id = "map";
         pcl::PointCloud<pcl::PointXYZRGB> temp_cloud;
         for (size_t i = 0; i < clusters.size(); ++i) {
           if (labels[i]) {
             clusterToPointCloud(clusters[i], &temp_cloud, T_initial);
-            changes_point_cloud += temp_cloud;
+            *changes_point_cloud += temp_cloud;
           }
         }
+        change_map_.addPointCloud(changes_point_cloud);
 
         pcl::PointCloud<pcl::PointXYZRGB> heat_map_point_cloud;
         octomap_compare_.getDistanceHeatMap(&heat_map_point_cloud);
@@ -95,6 +100,7 @@ class Online {
         heat_map_pub_.publish(heat_map_point_cloud);
         change_candidates_pub_.publish(change_candidate_point_cloud);
         changes_pub_.publish(changes_point_cloud);
+        change_map_pub_.publish(change_map_.getCloud());
 
         // Correct relocalization transform with ICP transform change.
         relocalization_transform_ = T_initial * T_map_robot.inverse();
@@ -133,12 +139,14 @@ public:
          const std::string& cloud_topic,
          const OctomapCompare::CompareParams& params) :
          nh_(nh), octomap_compare_(base_file, params), params_(params),
-         classifier_(getRandomForestParams(nh_)), n_printed_(0) {
+         classifier_(getRandomForestParams(nh_)), change_map_(params.filter_resolution),
+         n_printed_(0) {
     cloud_sub_ = nh_.subscribe(cloud_topic, 1, &Online::cloudCallback, this);
     change_candidates_pub_ =
         nh_.advertise<pcl::PointCloud<pcl::PointXYZRGB> >("change_candidates", 1, true);
     changes_pub_ = nh_.advertise<pcl::PointCloud<pcl::PointXYZRGB> >("changes", 1, true);
     heat_map_pub_ = nh_.advertise<pcl::PointCloud<pcl::PointXYZRGB> >("heat_map", 1, true);
+    change_map_pub_ = nh_.advertise<pcl::PointCloud<pcl::PointXYZRGB> >("change_map", 1, true);
 
     relocalization_transform_ = Eigen::Affine3d::Identity();
     bool use_relocalization = false;

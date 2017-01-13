@@ -73,6 +73,7 @@ OctomapCompare::CompareParams getCompareParams(ros::NodeHandle& nh) {
   nh.param("perform_icp", params.perform_icp, params.perform_icp);
   nh.param("clustering_algorithm", params.clustering_algorithm, params.clustering_algorithm);
   nh.param("clustering_space", params.clustering_space, params.clustering_space);
+  nh.param("filter_resolution", params.filter_resolution, params.filter_resolution);
 //  nh.getParam("/laser_mapper/icp_configuration_file", params.icp_configuration_file);
 //  nh.getParam("/laser_mapper/icp_input_filters_file", params.icp_input_filters_file);
 //  nh.getParam("/laser_mapper/icp_input_filters_file", params.icp_base_filters_file);
