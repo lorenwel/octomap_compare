@@ -10,7 +10,7 @@
 class FeatureExtractor {
 
 public:
-  static constexpr unsigned int kNFeatures = 42u;
+  static constexpr unsigned int kNFeatures = 45u;
 
   struct HistogramParams {
     double min_val;

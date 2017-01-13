@@ -87,6 +87,9 @@ void FeatureExtractor::getClusterFeatures(const Cluster& cluster, cv::Mat* featu
   std::vector<double> eigenvalue_features;
   getEigenvalueFeatures(cartesian_eigenvalues, &eigenvalue_features);
 
+  const double verticality =
+      (cartesian_variance(1) + cartesian_variance(0)) / cartesian_variance(2);
+
   // Get histogram.
   std::vector<size_t> histogram;
   getHistogram(cluster, &histogram);
@@ -107,7 +110,8 @@ void FeatureExtractor::getClusterFeatures(const Cluster& cluster, cv::Mat* featu
   features->at<float>(0,6) = distances[distances.size()/2];  // median_distance
   features->at<float>(0,7) = incident_angle;
   features->at<float>(0,8) = surface_angle;
-  size_t cur_mat_index = 9;
+  features->at<float>(0,9) = verticality;
+  size_t cur_mat_index = 10;
   cur_mat_index = writeEigenVectorToOpenCvMatrix(cartesian_eigenvalues, features, cur_mat_index);
   cur_mat_index = writeEigenVectorToOpenCvMatrix(spherical_eigenvalues, features, cur_mat_index);
   cur_mat_index = writeEigenVectorToOpenCvMatrix(cartesian_mean, features, cur_mat_index);
@@ -181,9 +185,9 @@ void FeatureExtractor::getEigenvalueFeatures(Eigen::Vector3d eig,
   eig /= eig.sum(); // Normalize.
   eigenvalue_features->push_back((eig(1) - eig(2)) / eig(1)); // linearity
 //  eigenvalue_features->push_back((eig(2) - eig(3)) / eig(1)); // planarity
-//  eigenvalue_features->push_back(eig(3) / eig(1));  // scattering
+  eigenvalue_features->push_back(eig(3) / eig(1));  // scattering
   eigenvalue_features->push_back(pow(eig.prod(), 1/3)); // omnivariance
-//  eigenvalue_features->push_back((eig(1) - eig(3)) / eig(1)); // anisotrophy
+  eigenvalue_features->push_back((eig(1) - eig(3)) / eig(1)); // anisotrophy
 //  eigenvalue_features->push_back(-(eig.array() * eig.array().log()).sum()); // eigenentropy
   eigenvalue_features->push_back(eig(3)); // change_of_curvature
 
