@@ -30,8 +30,8 @@ spherical_transform: [0, 1, 0,
                       1, 0, 0]  # transform from laser coordinate from to one that has z as laser rotation axis
 use_relocalization: true
 # change map filter parameter
-filter_resolution: 0.075
-min_points_per_voxel: 3
+min_overlap_ratio: 0.5
+min_num_overlap: 2
 
 classifier: {
   histogram: {
@@ -40,13 +40,13 @@ classifier: {
     bin_size: 0.8  # size of bins
   },
 
-  probability_threshold: 0.3, # probability threshold above which to mark labels positive
-  save_classifier_after_training: false,   # save the classifier to file after training
+  probability_threshold: 0.22, # probability threshold above which to mark labels positive
+  save_classifier_after_training: true,   # save the classifier to file after training
   roc_filename: "/tmp/roc_values.csv",  # where to save the roc values after testing
 
   rf_max_depth: 20, # maximum depth of decision tree / opencv default: 5
   rf_min_sample_ratio: 0.01,  # minimum samples required at a leaf node for it to be split
-  rf_priors: [0.5, 0.5],  # prior on class label probability / opencv default: 0
+  rf_priors: [0.75, 0.25],  # prior on class label probability / opencv default: 0
   rf_calc_var_importance: true, # compute variable importance / opencv default: false
   rf_use_surrogates: true,  # use surrogate splits for missing data to compute variable importance correctly / opencv default: false
   rf_n_active_vars: 0,  # size of randomly selected subset of features. setting 0 uses sqrt(n_samples). / opencv default: 0
@@ -55,16 +55,4 @@ classifier: {
   # not used in 2-class classification. need to be set regardless:
   rf_regression_accuracy: 0.0, # termination criteria for regression trees / opencv default: 0
   rf_max_categories: 10  # cluster values into k <= rf_max_categories categories. / opencv default: 10
-
-  # rf_max_depth: 40, # maximum depth of decision tree / opencv default: 5
-  # rf_min_sample_ratio: 0.01,  # minimum samples required at a leaf node for it to be split
-  # rf_priors: [0.88, 0.12],  # prior on class label probability / opencv default: 0
-  # rf_calc_var_importance: true, # compute variable importance / opencv default: false
-  # rf_use_surrogates: true,  # use surrogate splits for missing data to compute variable importance correctly / opencv default: false
-  # rf_n_active_vars: 0,  # size of randomly selected subset of features. setting 0 uses sqrt(n_samples). / opencv default: 0
-  # rf_max_num_of_trees: 120, # maximum number of trees in forest.
-  # rf_accuracy: 0.95,  # sufficient accuracy. / opencv default: 5
-  # # not used in 2-class classification. need to be set regardless:
-  # rf_regression_accuracy: 0.95, # termination criteria for regression trees / opencv default: 0
-  # rf_max_categories: 2  # cluster values into k <= rf_max_categories categories. / opencv default: 10
 }

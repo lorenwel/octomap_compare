@@ -1,88 +1,127 @@
 #ifndef OCTOMAP_COMPARE_CHANGE_MAP_H_
 #define OCTOMAP_COMPARE_CHANGE_MAP_H_
 
-#include <memory>
+#include <algorithm>
 
+#include <Eigen/Geometry>
 #include <glog/logging.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
-#include <pcl/octree/octree_impl.h>
-#include <pcl/octree/octree_pointcloud_pointvector.h>
+
+#include "octomap_compare/octomap_compare_utils.h"
+
+struct Change {
+  Matrix3xDynamic points;
+  Eigen::AlignedBox3d bbox;
+};
 
 template<typename PointType>
 class ChangeMap {
-  typedef pcl::PointCloud<PointType> CloudType;
-  typedef typename pcl::PointCloud<PointType>::ConstPtr CloudTypeConstPtr;
-  typedef pcl::octree::OctreePointCloudPointVector<PointType> PclOcTree;
 
-  CloudType change_map_;
+  const double min_ratio_;
 
-  std::unique_ptr<PclOcTree> last_octree_;
-  std::unique_ptr<PclOcTree> input_octree_;
-  PclOcTree valid_octree_;
+  const unsigned int min_pts_;
 
-  CloudType change_points_;
-
-  const double max_val_;
+  std::vector<Change> appear_changes_;
+  std::vector<Change> disappear_changes_;
 
 public:
-  ChangeMap(const double resolution) : last_octree_(new PclOcTree(resolution)),
-                                       input_octree_(new PclOcTree(resolution)),
-                                       valid_octree_(resolution),
-                                       max_val_(resolution * 32768) {
-    change_points_.header.frame_id = "map";
-    last_octree_->defineBoundingBox(-max_val_, -max_val_, -max_val_, max_val_, max_val_, max_val_);
-    input_octree_->defineBoundingBox(-max_val_, -max_val_, -max_val_, max_val_, max_val_, max_val_);
-    valid_octree_.defineBoundingBox(-max_val_, -max_val_, -max_val_, max_val_, max_val_, max_val_);
+  ChangeMap(const double& resolution, const unsigned int& min_pts) :
+            min_ratio_(resolution),
+            min_pts_(min_pts) {
+
   }
 
-  void addPointCloud(const CloudTypeConstPtr& input_cloud) {
-    input_octree_->setInputCloud(input_cloud);
-    input_octree_->addPointsFromInputCloud();
-    if (last_octree_->getInputCloud()) {
-      for (auto it = last_octree_->leaf_begin(); it != last_octree_->leaf_end(); ++it) {
-        const std::vector<int> point_indices = it.getLeafContainer().getPointIndicesVector();
-        const pcl::octree::OctreeKey key = it.getCurrentOctreeKey();
-        // Check if input_octree_ hast same occupied leaf as last_octree_.
-        if (point_indices.size() > 0) {
-          const auto* ptr = input_octree_->findLeaf(key.x, key.y, key.z);
-          if (ptr) {
-            LOG(INFO) << "At depth " << it.getCurrentOctreeDepth();
-            LOG(INFO) << "Found other non-empty voxel.";
-            if (ptr->getSize() > 0) {
-              LOG(INFO) << "Found other non-empty voxel that has points.";
-              // Input_octree_ has same leaf --> add leaf to valid_octree_.
-              valid_octree_.createLeaf(key.x, key.y, key.z);
-            }
+  void addPointCloud(const std::vector<Cluster>& clusters,
+                     const std::vector<bool>& labels,
+                     const Eigen::Affine3d& transform = Eigen::Affine3d::Identity()) {
+    CHECK_EQ(clusters.size(), labels.size());
+    Change temp_change;
+    const size_t n_clusters = clusters.size();
+    // Check if we have dynamic cluster.
+    if (std::find(labels.begin(), labels.end(), true) != labels.end()) {
+      for (size_t i = 0; i < n_clusters; ++i) {
+        if (labels[i]) {
+          const size_t n_points = clusters[i].points.size();
+          temp_change.points.resize(3, n_points);
+          for (size_t j = 0; j < n_points; ++j) {
+            temp_change.points.col(j) = transform * clusters[i].points[j].cartesian;
           }
-        }
-        // Check if points in this last_octree_ leaf are valid.
-        if (valid_octree_.existLeaf(key.x, key.y, key.z)) {
-          // Add them if they are.
-          change_points_ += CloudType(*(last_octree_->getInputCloud()), point_indices);
-          LOG(INFO) << "Added point.";
+          const Eigen::Vector3d min = temp_change.points.rowwise().minCoeff();
+          const Eigen::Vector3d max = temp_change.points.rowwise().maxCoeff();
+          temp_change.bbox = Eigen::AlignedBox3d(min, max);
+          if (clusters[i].id > 0) appear_changes_.push_back(temp_change);
+          else if (clusters[i].id < 0) disappear_changes_.push_back(temp_change);
         }
       }
     }
-    double min_x, max_x, min_y, max_y, min_z, max_z;
-    input_octree_->getBoundingBox(min_x, min_y, min_z, max_x, max_y, max_z);
-    LOG(INFO) << "input bounding box " << min_x<< " " << min_y<< " " << min_z<< " " << max_x<< " " << max_y << " " << max_z;
-    last_octree_->getBoundingBox(min_x, min_y, min_z, max_x, max_y, max_z);
-    LOG(INFO) << "last bounding box " << min_x<< " " << min_y<< " " << min_z<< " " << max_x<< " " << max_y << " " << max_z;
-    valid_octree_.getBoundingBox(min_x, min_y, min_z, max_x, max_y, max_z);
-    LOG(INFO) << "valid bounding box " << min_x<< " " << min_y<< " " << min_z<< " " << max_x<< " " << max_y << " " << max_z;
-    LOG(INFO) << "input tree depth " << input_octree_->getTreeDepth();
-    LOG(INFO) << "last tree depth " << last_octree_->getTreeDepth();
-    LOG(INFO) << "valid tree depth " << valid_octree_.getTreeDepth();
-
-    // Prepare for next pass.
-    last_octree_.swap(input_octree_);
-    input_octree_->deleteTree();
-    input_octree_->defineBoundingBox(-max_val_, -max_val_, -max_val_, max_val_, max_val_, max_val_);
   }
 
-  inline const CloudType& getCloud() {
-    return change_points_;
+  // TODO: make this more efficient.
+  std::list<Eigen::AlignedBox3d> getBBoxIntersection(const std::vector<Change>& changes) {
+    std::list<Eigen::AlignedBox3d> bbox_list;
+
+    const size_t n_scans = changes.size();
+    size_t counter;
+    Eigen::AlignedBox3d cur_box;
+    for (size_t i = 0; i < n_scans; ++i) {
+      cur_box = changes[i].bbox;
+      counter = 1;
+      for (size_t j = i+1; j < n_scans; ++j) {
+        const Eigen::AlignedBox3d intersection = cur_box.intersection(changes[j].bbox);
+        if (!intersection.isEmpty()){
+          const double intersection_volume = intersection.volume();
+          if (intersection_volume / cur_box.volume() > min_ratio_ &&
+              intersection_volume / changes[j].bbox.volume() > min_ratio_) {
+            cur_box = intersection;
+            ++counter;
+            if (counter >= min_pts_) {
+              bbox_list.push_back(cur_box);
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    return bbox_list;
+  }
+
+  void addPointsInOverlappingBBoxToCloud(const std::vector<Change>& changes,
+                                         const std::list<Eigen::AlignedBox3d>& bboxes,
+                                         const pcl::RGB& color,
+                                         pcl::PointCloud<pcl::PointXYZRGB>::Ptr& cloud) {
+    pcl::PointXYZRGB point;
+    applyColorToPoint(color, point);
+    for (const Change& change: changes) {
+      for (const Eigen::AlignedBox3d& bbox: bboxes) {
+        if (change.bbox.intersects(bbox)) {
+          if (change.bbox.intersection(bbox).volume() / change.bbox.volume() > min_ratio_) {
+            const size_t n_points = change.points.cols();
+            for (size_t i = 0; i < n_points; ++i) {
+              setXYZFromEigen(change.points.col(i), point);
+              cloud->push_back(point);
+            }
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr getCloud() {
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr out_cloud(new pcl::PointCloud<pcl::PointXYZRGB>());
+    out_cloud->header.frame_id = "map";
+
+    const std::list<Eigen::AlignedBox3d> appear_bboxes = getBBoxIntersection(appear_changes_);
+    const std::list<Eigen::AlignedBox3d> disappear_bboxes =
+        getBBoxIntersection(disappear_changes_);
+    pcl::RGB color; color.r = 0; color.g = 255; color.b = 0;
+    addPointsInOverlappingBBoxToCloud(appear_changes_, appear_bboxes, color, out_cloud);
+    color.r = 255; color.g = 0;
+    addPointsInOverlappingBBoxToCloud(disappear_changes_, disappear_bboxes, color, out_cloud);
+
+    return out_cloud;
   }
 };
 

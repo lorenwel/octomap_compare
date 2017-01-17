@@ -3,7 +3,7 @@
 <launch>
 
   <!-- Octomap compare node -->
-  <node name="train_node" pkg="octomap_compare" type="train_node" output="screen" args="/home/lorenwel/Documents/change_csv/csv/delta_2 /home/lorenwel/Documents/change_csv/csv/delta_5_1" >
+  <node name="train_node" pkg="octomap_compare" type="train_node" output="screen" args="/home/lorenwel/Documents/change_csv/csv/train /home/lorenwel/Documents/change_csv/csv/test" >
     <rosparam command="load" file="$(find octomap_compare)/launch/compare_params.yaml"/>
     <param name="classifier_file_name" value="$(find octomap_compare)/launch/random_forest_classifier.xml" />
   </node>

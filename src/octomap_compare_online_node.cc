@@ -92,7 +92,7 @@ class Online {
             *changes_point_cloud += temp_cloud;
           }
         }
-        change_map_.addPointCloud(changes_point_cloud);
+        change_map_.addPointCloud(clusters, labels, T_initial);
 
         pcl::PointCloud<pcl::PointXYZRGB> heat_map_point_cloud;
         octomap_compare_.getDistanceHeatMap(&heat_map_point_cloud);
@@ -139,7 +139,8 @@ public:
          const std::string& cloud_topic,
          const OctomapCompare::CompareParams& params) :
          nh_(nh), octomap_compare_(base_file, params), params_(params),
-         classifier_(getRandomForestParams(nh_)), change_map_(params.filter_resolution),
+         classifier_(getRandomForestParams(nh_)),
+         change_map_(params.min_overlap_ratio, params.min_num_overlap),
          n_printed_(0) {
     cloud_sub_ = nh_.subscribe(cloud_topic, 1, &Online::cloudCallback, this);
     change_candidates_pub_ =
