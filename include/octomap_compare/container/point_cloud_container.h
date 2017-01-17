@@ -7,18 +7,12 @@
 #include <fstream>
 #include <limits>
 
-#include <sm/timing/Timer.hpp>
-
-//typedef sm::timing::Timer Timer;
-typedef sm::timing::DummyTimer Timer;
-
 static constexpr unsigned int kNPhi = 2880;
 static constexpr unsigned int kNTheta = 1440;
 static constexpr double kPhiIndexFactor = kNPhi / (2.0*M_PI);
 static constexpr double kThetaIndexFactor = kNTheta / M_PI;
 
 static constexpr unsigned int kNStdDev = 2;
-
 
 class PointCloudContainer : public ContainerBase {
 

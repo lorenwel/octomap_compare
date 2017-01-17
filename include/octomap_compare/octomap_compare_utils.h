@@ -16,6 +16,17 @@
 #include <pointmatcher/PointMatcher.h>
 #include <ros/ros.h>
 
+#include <sm/timing/Timer.hpp>
+
+// Typedefs for timing code.
+// Don't activeate both timers at the same time or the pipeline timer will be false.
+// Times subsets of pipeline.
+//typedef sm::timing::Timer Timer;
+typedef sm::timing::DummyTimer Timer;
+// Times the whole pipeline.
+//typedef sm::timing::Timer PipelineTimer;
+typedef sm::timing::DummyTimer PipelineTimer;
+
 typedef PointMatcher<double> PM;
 typedef Eigen::Matrix<double, 3, Eigen::Dynamic> Matrix3xDynamic;
 typedef Nabo::NearestNeighbourSearch<double, Matrix3xDynamic> NNSearch3d;

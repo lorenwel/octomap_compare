@@ -5,6 +5,7 @@
 
 #include <Eigen/Geometry>
 #include <glog/logging.h>
+#include <pcl/filters/statistical_outlier_removal.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 
@@ -17,6 +18,10 @@ struct Change {
 
 template<typename PointType>
 class ChangeMap {
+
+  typedef pcl::PointCloud<PointType> CloudType;
+  typedef typename CloudType::Ptr CloudTypePtr;
+  typedef typename CloudType::ConstPtr CloudTypeConstPtr;
 
   const double min_ratio_;
 
@@ -90,8 +95,8 @@ public:
   void addPointsInOverlappingBBoxToCloud(const std::vector<Change>& changes,
                                          const std::list<Eigen::AlignedBox3d>& bboxes,
                                          const pcl::RGB& color,
-                                         pcl::PointCloud<pcl::PointXYZRGB>::Ptr& cloud) {
-    pcl::PointXYZRGB point;
+                                         CloudTypePtr& cloud) {
+    PointType point;
     applyColorToPoint(color, point);
     for (const Change& change: changes) {
       for (const Eigen::AlignedBox3d& bbox: bboxes) {
@@ -109,17 +114,26 @@ public:
     }
   }
 
-  pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr getCloud() {
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr out_cloud(new pcl::PointCloud<pcl::PointXYZRGB>());
+  CloudTypeConstPtr getCloud() {
+    CloudTypePtr out_cloud(new CloudType());
+    CloudTypePtr temp_cloud(new CloudType());
     out_cloud->header.frame_id = "map";
 
+    // Build point cloud.
     const std::list<Eigen::AlignedBox3d> appear_bboxes = getBBoxIntersection(appear_changes_);
     const std::list<Eigen::AlignedBox3d> disappear_bboxes =
         getBBoxIntersection(disappear_changes_);
     pcl::RGB color; color.r = 0; color.g = 255; color.b = 0;
-    addPointsInOverlappingBBoxToCloud(appear_changes_, appear_bboxes, color, out_cloud);
+    addPointsInOverlappingBBoxToCloud(appear_changes_, appear_bboxes, color, temp_cloud);
     color.r = 255; color.g = 0;
-    addPointsInOverlappingBBoxToCloud(disappear_changes_, disappear_bboxes, color, out_cloud);
+    addPointsInOverlappingBBoxToCloud(disappear_changes_, disappear_bboxes, color, temp_cloud);
+
+    // Filter.
+    pcl::StatisticalOutlierRemoval<PointType> sor_filter;
+    sor_filter.setInputCloud(temp_cloud);
+    sor_filter.setMeanK(10);
+    sor_filter.setStddevMulThresh(1.0);
+    sor_filter.filter(*out_cloud);
 
     return out_cloud;
   }

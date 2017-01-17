@@ -48,7 +48,7 @@ class Online {
     tf::StampedTransform T_temp;
     if (first_relocalization_received_) {
       try {
-        Timer pipeline_timer("pipeline");
+        PipelineTimer pipeline_timer("pipeline");
         Timer init_timer("init");
         tf_listener_.lookupTransform("map",
                                      cloud.header.frame_id,
@@ -63,11 +63,9 @@ class Online {
         Matrix3xDynamic points = pointMatcherToMatrix3dEigen(intermediate_points);
         init_timer.stop();
 
-        Timer compare_timer("compare");
         PointCloudContainer compare_container(points, params_.spherical_transform, params_.std_dev);
 
         octomap_compare_.compare(compare_container, &T_initial.matrix());
-        compare_timer.stop();
 
         pcl::PointCloud<pcl::PointXYZRGB> change_candidate_point_cloud;
         octomap_compare_.getChangeCandidates(&change_candidate_point_cloud);
@@ -92,7 +90,9 @@ class Online {
             *changes_point_cloud += temp_cloud;
           }
         }
+        Timer change_map_timer("change_map");
         change_map_.addPointCloud(clusters, labels, T_initial);
+        change_map_timer.stop();
 
         pcl::PointCloud<pcl::PointXYZRGB> heat_map_point_cloud;
         octomap_compare_.getDistanceHeatMap(&heat_map_point_cloud);
@@ -100,7 +100,9 @@ class Online {
         heat_map_pub_.publish(heat_map_point_cloud);
         change_candidates_pub_.publish(change_candidate_point_cloud);
         changes_pub_.publish(changes_point_cloud);
+        change_map_timer.start();
         change_map_pub_.publish(change_map_.getCloud());
+        change_map_timer.stop();
 
         // Correct relocalization transform with ICP transform change.
         relocalization_transform_ = T_initial * T_map_robot.inverse();
