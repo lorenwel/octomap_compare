@@ -76,9 +76,9 @@ public:
         const Eigen::AlignedBox3d intersection = cur_box.intersection(changes[j].bbox);
         if (!intersection.isEmpty()){
           const double intersection_volume = intersection.volume();
-          if (intersection_volume / cur_box.volume() > min_ratio_ &&
+          if (/*intersection_volume / cur_box.volume() > min_ratio_ &&*/
               intersection_volume / changes[j].bbox.volume() > min_ratio_) {
-            cur_box = intersection;
+//            cur_box = intersection;
             ++counter;
             if (counter >= min_pts_) {
               bbox_list.push_back(cur_box);
@@ -117,7 +117,6 @@ public:
   CloudTypeConstPtr getCloud() {
     CloudTypePtr out_cloud(new CloudType());
     CloudTypePtr temp_cloud(new CloudType());
-    out_cloud->header.frame_id = "map";
 
     // Build point cloud.
     const std::list<Eigen::AlignedBox3d> appear_bboxes = getBBoxIntersection(appear_changes_);
@@ -132,9 +131,10 @@ public:
     pcl::StatisticalOutlierRemoval<PointType> sor_filter;
     sor_filter.setInputCloud(temp_cloud);
     sor_filter.setMeanK(10);
-    sor_filter.setStddevMulThresh(1.0);
+    sor_filter.setStddevMulThresh(2.0);
     sor_filter.filter(*out_cloud);
 
+    out_cloud->header.frame_id = "map";
     return out_cloud;
   }
 };
