@@ -41,8 +41,9 @@ classifier: {
   },
 
   probability_threshold: 0.22, # probability threshold above which to mark labels positive
-  save_classifier_after_training: true,   # save the classifier to file after training
+  save_classifier_after_training: false,   # save the classifier to file after training
   roc_filename: "/tmp/roc_values.csv",  # where to save the roc values after testing
+  point_num_error_weight: false, # weight the classification error with number of points in cluster
 
   rf_max_depth: 20, # maximum depth of decision tree / opencv default: 5
   rf_min_sample_ratio: 0.01,  # minimum samples required at a leaf node for it to be split

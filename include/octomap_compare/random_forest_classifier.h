@@ -13,6 +13,7 @@ public:
     FeatureExtractor::HistogramParams histogram_params;
     double probability_threshold;
     bool save_classifier_after_training;
+    bool point_num_error_weight;
     std::string classifier_file_name;
     std::string roc_filename;
 

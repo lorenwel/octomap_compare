@@ -42,8 +42,10 @@ void RandomForestClassifier::train(const std::vector<Cluster>& clusters,
                                    const std::vector<bool> &labels) {
   CHECK_EQ(clusters.size(), labels.size()) << "Training data and labels have different size.";
   CHECK_NE(labels.size(), 0) << "Got empty training labels.";
-  CHECK_GT(sumOfEqualValues(labels, true), 0) << "Training data has no positive labels.";
-  CHECK_GT(sumOfEqualValues(labels, false), 0) << "Training data has no negative labels.";
+  CHECK(std::find(labels.begin(), labels.end(), true) != labels.end())
+      << "Test data has no positive labels.";
+  CHECK(std::find(labels.begin(), labels.end(), false) != labels.end())
+      << "Test data has no negative labels.";
 
   const size_t n_clusters = clusters.size();
   cv::Mat features(n_clusters, FeatureExtractor::kNFeatures, CV_32FC1);
@@ -112,7 +114,9 @@ inline double getMeanClusterDist(const Cluster& cluster) {
   return mean;
 }
 
-void printCompROC(const std::vector<Cluster>&clusters, const std::vector<bool>& labels) {
+void printCompROC(const std::vector<Cluster>&clusters,
+                  const std::vector<bool>& labels,
+                  const std::vector<size_t>& n_points) {
   std::ofstream file;
   file.open("/tmp/comp_heat_vals.csv");
   CHECK(file.is_open()) << "Could not open file.";
@@ -121,18 +125,33 @@ void printCompROC(const std::vector<Cluster>&clusters, const std::vector<bool>& 
     file << getMinClusterDist(cluster) << ", "
          << getMeanClusterDist(cluster) << ", "
          << getMaxClusterDist(cluster) << ", "
-         << labels[i++] << "\n";
+         << labels[i] << ", " << n_points[i] << "\n";
+    ++i;
   }
   file.close();
+}
+
+std::vector<size_t> getNPointsVec(const std::vector<Cluster>& clusters) {
+  const size_t n_clusters = clusters.size();
+  std::vector<size_t> n_points_vec(n_clusters);
+  for (size_t i = 0; i < n_clusters; ++i) {
+    n_points_vec[i] = clusters[i].points.size();
+  }
+  return n_points_vec;
 }
 
 void RandomForestClassifier::test(const std::vector<Cluster>& clusters,
                                   const std::vector<bool>& labels) {
   const size_t n_clusters = clusters.size();
   CHECK_EQ(clusters.size(), labels.size()) << "Clusters and labels have different size.";
-  CHECK_GT(sumOfEqualValues(labels, true), 0) << "Test data has no positive labels.";
-  CHECK_GT(sumOfEqualValues(labels, false), 0) << "Test data has no negative labels.";
-  printCompROC(clusters, labels);
+  CHECK(std::find(labels.begin(), labels.end(), true) != labels.end())
+      << "Test data has no positive labels.";
+  CHECK(std::find(labels.begin(), labels.end(), false) != labels.end())
+      << "Test data has no negative labels.";
+  const std::vector<size_t> n_points_vec = getNPointsVec(clusters);
+
+  if (params_.point_num_error_weight ) printCompROC(clusters, labels, n_points_vec);
+  else printCompROC(clusters, labels, std::vector<size_t>(labels.size(), 1));
 
   cv::Mat features(1, FeatureExtractor::kNFeatures, CV_32FC1);
   std::vector<double> pred_prob(n_clusters);
@@ -161,7 +180,12 @@ void RandomForestClassifier::test(const std::vector<Cluster>& clusters,
   for (size_t i = 1; i < kNROCSteps - 1u; ++i) {
     // Get false pos and true pos.
     const std::vector<bool> pred_labels = probGreaterThan(pred_prob, kROCResolution*i);
-    roc_vec[i] = getFalsePosAndTruePos(pred_labels, labels);
+    if (params_.point_num_error_weight) {
+      roc_vec[i] = getFalsePosAndTruePos(pred_labels, labels, n_points_vec);
+    }
+    else {
+      roc_vec[i] = getFalsePosAndTruePos(pred_labels, labels);
+    }
 
     // Update best threshold.
     const float accuracy = -roc_vec[i].first + roc_vec[i].second;
@@ -186,14 +210,21 @@ void RandomForestClassifier::test(const std::vector<Cluster>& clusters,
   // Print current precision/recall.
   const std::vector<bool> cur_param_labels =
       probGreaterThan(pred_prob, params_.probability_threshold);
-  std::pair<float, float> prec_rec = getPrecisionAndRecall(cur_param_labels, labels);
-  LOG(INFO) << "Precision/Recall for current threshold " << params_.probability_threshold
-            << " is " << prec_rec.first << "/" << prec_rec.second << "\n";
-
   // Print best precision/recall.
   const std::vector<bool> best_param_labels =
       probGreaterThan(pred_prob, best_threshold);
-  std::pair<float, float> best_prec_rec = getPrecisionAndRecall(best_param_labels, labels);
+  std::pair<float, float> prec_rec;
+  std::pair<float, float> best_prec_rec;
+  if (params_.point_num_error_weight) {
+    prec_rec = getPrecisionAndRecall(cur_param_labels, labels, n_points_vec);
+    best_prec_rec = getPrecisionAndRecall(best_param_labels, labels, n_points_vec);
+  }
+  else {
+    prec_rec = getPrecisionAndRecall(cur_param_labels, labels);
+    best_prec_rec = getPrecisionAndRecall(best_param_labels, labels);
+  }
+  LOG(INFO) << "Precision/Recall for current threshold " << params_.probability_threshold
+            << " is " << prec_rec.first << "/" << prec_rec.second << "\n";
   LOG(INFO) << "Precision/Recall for best threshold " << best_threshold
             << " is " << best_prec_rec.first << "/" << best_prec_rec.second << "\n";
 

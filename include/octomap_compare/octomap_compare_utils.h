@@ -98,48 +98,74 @@ inline pcl::RGB getColorFromIdSign(const int& id) {
 }
 
 static size_t sumOfEqualValues(const std::vector<bool>& vec1, const std::vector<bool>& vec2,
-                        const bool& val1, const bool& val2) {
+                        const bool& val1, const bool& val2,
+                               const std::vector<size_t> n_points) {
   CHECK_EQ(vec1.size(), vec2.size()) << "Vectors have different length.";
   const size_t vec_size = vec1.size();
   size_t sum = 0;
   for (size_t i = 0; i < vec_size; ++i) {
-    if (vec1[i] == val1 && vec2[i] == val2) ++sum;
+    if (vec1[i] == val1 && vec2[i] == val2) sum += n_points[i];
   }
   LOG_IF(WARNING, sum == 0) << val1 << " " << val2 << " has sum 0.";
   return sum;
 }
 
-static size_t sumOfEqualValues(const std::vector<bool>& vec, const bool& val) {
+static size_t sumOfEqualValues(const std::vector<bool>& vec, const bool& val,
+                               const std::vector<size_t> n_points) {
   const size_t vec_size = vec.size();
   size_t sum = 0;
   for (size_t i = 0; i < vec_size; ++i) {
-    if (vec[i] == val) ++sum;
+    if (vec[i] == val) sum += n_points[i];
   }
   LOG_IF(WARNING, sum == 0) << val << " has sum 0.";
   return sum;
 }
 
-static std::pair<float, float> getFalsePosAndTruePos(const std::vector<bool>& pred_labels,
-                                              const std::vector<bool>& true_labels) {
+static std::pair<float, float> getFalsePosAndTruePos(
+    const std::vector<bool>& pred_labels,
+    const std::vector<bool>& true_labels,
+    const std::vector<size_t> n_points) {
   CHECK_EQ(pred_labels.size(), true_labels.size()) << "Vectors have different length.";
-  const float n_true_pos = sumOfEqualValues(pred_labels, true_labels, true, true);
-  const float n_true_neg = sumOfEqualValues(pred_labels, true_labels, false, false);
-  const float n_false_pos = sumOfEqualValues(pred_labels, true_labels, true, false);
-  const float n_false_neg = sumOfEqualValues(pred_labels, true_labels, false, true);
+  CHECK_EQ(pred_labels.size(), n_points.size()) << "Vectors have different length.";
+  const double n_true_pos = sumOfEqualValues(pred_labels, true_labels, true, true, n_points);
+  const double n_true_neg = sumOfEqualValues(pred_labels, true_labels, false, false, n_points);
+  const double n_false_pos = sumOfEqualValues(pred_labels, true_labels, true, false, n_points);
+  const double n_false_neg = sumOfEqualValues(pred_labels, true_labels, false, true, n_points);
   return std::make_pair(n_false_pos / (n_false_pos + n_true_neg), // FalsePos.
                         n_true_pos / (n_true_pos + n_false_neg));  // TruePos.
 }
 
-static std::pair<float, float> getPrecisionAndRecall(const std::vector<bool>& pred_labels,
-                                              const std::vector<bool>& true_labels) {
+inline std::pair<float, float> getFalsePosAndTruePos(
+    const std::vector<bool>& pred_labels,
+    const std::vector<bool>& true_labels) {
+  return getFalsePosAndTruePos(pred_labels,
+                               true_labels,
+                               std::vector<size_t>(pred_labels.size(), 1));
+}
+
+
+
+static std::pair<float, float> getPrecisionAndRecall(
+    const std::vector<bool>& pred_labels,
+    const std::vector<bool>& true_labels,
+    const std::vector<size_t> n_points) {
   CHECK_EQ(pred_labels.size(), true_labels.size()) << "Vectors have different length.";
-  const float n_pos = sumOfEqualValues(true_labels, true);
-  const float n_neg = sumOfEqualValues(true_labels, false);
-  const float n_true_pos = sumOfEqualValues(pred_labels, true_labels, true, true);
-  const float n_false_pos = sumOfEqualValues(pred_labels, true_labels, true, false);
-  const float n_false_neg = sumOfEqualValues(pred_labels, true_labels, false, true);
+  CHECK_EQ(pred_labels.size(), n_points.size()) << "Vectors have different length.";
+  const double n_pos = sumOfEqualValues(true_labels, true, n_points);
+  const double n_neg = sumOfEqualValues(true_labels, false, n_points);
+  const double n_true_pos = sumOfEqualValues(pred_labels, true_labels, true, true, n_points);
+  const double n_false_pos = sumOfEqualValues(pred_labels, true_labels, true, false, n_points);
+  const double n_false_neg = sumOfEqualValues(pred_labels, true_labels, false, true, n_points);
   return std::make_pair(n_true_pos/n_pos / (n_true_pos/n_pos + n_false_pos/n_neg),  // Precision.
                         n_true_pos / (n_true_pos + n_false_neg)); // Recall.
+}
+
+inline std::pair<float, float> getPrecisionAndRecall(
+    const std::vector<bool>& pred_labels,
+    const std::vector<bool>& true_labels) {
+  return getPrecisionAndRecall(pred_labels,
+                               true_labels,
+                               std::vector<size_t>(pred_labels.size(), 1));
 }
 
 inline double getNextVal(std::stringstream& stream) {
