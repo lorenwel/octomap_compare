@@ -27,9 +27,6 @@ RandomForestClassifier::Params getRandomForestParams(ros::NodeHandle& nh) {
 
   nh.param("classifier_file_name", params.classifier_file_name, params.classifier_file_name);
   nh.param("classifier/roc_filename", params.roc_filename, params.roc_filename);
-  nh.param("classifier/point_num_error_weight",
-           params.point_num_error_weight,
-           params.point_num_error_weight);
   nh.param("classifier/probability_threshold",
            params.probability_threshold,
            params.probability_threshold);

@@ -28,7 +28,7 @@ spherical_transform: [0, 1, 0,
 use_relocalization: true  # wait for relocalization transform before starting to compare
 # change map filter parameter
 min_overlap_ratio: 0.5  # ratio of bounding box overlap for clusters to be considered the same
-min_num_overlap: 2  # number of bounding boxes that need to overlap
+min_num_overlap: 3  # number of bounding boxes that need to overlap
 
 classifier: {
   histogram: {
@@ -37,10 +37,9 @@ classifier: {
     bin_size: 0.8  # size of bins
   },
 
-  probability_threshold: 0.22, # probability threshold above which to mark labels positive
+  probability_threshold: 0.23, # probability threshold above which to mark labels positive
   save_classifier_after_training: false,   # save the classifier to file after training
   roc_filename: "/tmp/roc_values.csv",  # where to save the roc values after testing
-  point_num_error_weight: false, # weight the classification error with number of points in cluster
 
   rf_max_depth: 20, # maximum depth of decision tree / opencv default: 5
   rf_min_sample_ratio: 0.01,  # minimum samples required at a leaf node for it to be split

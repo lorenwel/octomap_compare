@@ -116,10 +116,11 @@ inline double getMeanClusterDist(const Cluster& cluster) {
 
 void printCompROC(const std::vector<Cluster>&clusters,
                   const std::vector<bool>& labels,
-                  const std::vector<size_t>& n_points) {
+                  const std::vector<size_t>& n_points,
+                  const std::string& file_name) {
   std::ofstream file;
-  file.open("/tmp/comp_heat_vals.csv");
-  CHECK(file.is_open()) << "Could not open file.";
+  file.open(file_name);
+  CHECK(file.is_open()) << "Could not open file \"" << file_name <<  "\".";
   size_t i = 0;
   for (const Cluster& cluster: clusters) {
     file << getMinClusterDist(cluster) << ", "
@@ -150,8 +151,8 @@ void RandomForestClassifier::test(const std::vector<Cluster>& clusters,
       << "Test data has no negative labels.";
   const std::vector<size_t> n_points_vec = getNPointsVec(clusters);
 
-  if (params_.point_num_error_weight ) printCompROC(clusters, labels, n_points_vec);
-  else printCompROC(clusters, labels, std::vector<size_t>(labels.size(), 1));
+  printCompROC(clusters, labels, std::vector<size_t>(labels.size(), 1), "/tmp/comp_heat_vals.csv");
+  printCompROC(clusters, labels, n_points_vec, "/tmp/comp_heat_vals_point.csv");
 
   cv::Mat features(1, FeatureExtractor::kNFeatures, CV_32FC1);
   std::vector<double> pred_prob(n_clusters);
@@ -174,18 +175,15 @@ void RandomForestClassifier::test(const std::vector<Cluster>& clusters,
   std::vector<std::pair<float, float> > roc_vec(kNROCSteps);
   roc_vec.front() = std::make_pair(1.0, 1.0);
   roc_vec.back() = std::make_pair(0.0, 0.0);
+  std::vector<std::pair<float, float> > roc_vec_point = roc_vec;
   float area_under_curve = 0;
   float best_threshold = 0;
   float max_accuracy = 0;
   for (size_t i = 1; i < kNROCSteps - 1u; ++i) {
     // Get false pos and true pos.
     const std::vector<bool> pred_labels = probGreaterThan(pred_prob, kROCResolution*i);
-    if (params_.point_num_error_weight) {
-      roc_vec[i] = getFalsePosAndTruePos(pred_labels, labels, n_points_vec);
-    }
-    else {
-      roc_vec[i] = getFalsePosAndTruePos(pred_labels, labels);
-    }
+    roc_vec[i] = getFalsePosAndTruePos(pred_labels, labels);
+    roc_vec_point[i] = getFalsePosAndTruePos(pred_labels, labels, n_points_vec);
 
     // Update best threshold.
     const float accuracy = -roc_vec[i].first + roc_vec[i].second;
@@ -215,14 +213,8 @@ void RandomForestClassifier::test(const std::vector<Cluster>& clusters,
       probGreaterThan(pred_prob, best_threshold);
   std::pair<float, float> prec_rec;
   std::pair<float, float> best_prec_rec;
-  if (params_.point_num_error_weight) {
-    prec_rec = getPrecisionAndRecall(cur_param_labels, labels, n_points_vec);
-    best_prec_rec = getPrecisionAndRecall(best_param_labels, labels, n_points_vec);
-  }
-  else {
-    prec_rec = getPrecisionAndRecall(cur_param_labels, labels);
-    best_prec_rec = getPrecisionAndRecall(best_param_labels, labels);
-  }
+  prec_rec = getPrecisionAndRecall(cur_param_labels, labels);
+  best_prec_rec = getPrecisionAndRecall(best_param_labels, labels);
   LOG(INFO) << "Precision/Recall for current threshold " << params_.probability_threshold
             << " is " << prec_rec.first << "/" << prec_rec.second << "\n";
   LOG(INFO) << "Precision/Recall for best threshold " << best_threshold
@@ -232,8 +224,9 @@ void RandomForestClassifier::test(const std::vector<Cluster>& clusters,
   std::ofstream file;
   file.open(params_.roc_filename);
   if (file.is_open()) {
-    for (const auto& prec_rec: roc_vec) {
-      file << prec_rec.first << ", " << prec_rec.second << "\n";
+    for (size_t i = 0; i < kNROCSteps; ++i) {
+      file << roc_vec[i].first << ", " << roc_vec[i].second << ", "
+           << roc_vec_point[i].first << ", " << roc_vec_point[i].second << "\n";
     }
     file.close();
   }
