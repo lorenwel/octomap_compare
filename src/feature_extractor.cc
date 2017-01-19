@@ -60,7 +60,6 @@ void FeatureExtractor::getClusterFeatures(const Cluster& cluster, cv::Mat* featu
   const Eigen::EigenSolver<Eigen::MatrixXd> spherical_solver(spherical_tensor, false);
 
   const Eigen::Vector3d cartesian_eigenvalues = cartesian_solver.eigenvalues().real();
-  const Eigen::Vector3d spherical_eigenvalues = spherical_solver.eigenvalues().real();
   const Eigen::Matrix3d cartesian_eigen_vectors = cartesian_solver.eigenvectors().real();
 
   // Compute sample variance.
@@ -79,8 +78,6 @@ void FeatureExtractor::getClusterFeatures(const Cluster& cluster, cv::Mat* featu
   const Eigen::Vector3d surface_normal = cartesian_eigen_vectors.col(min_eig_ind);
 
   // Compute surface normal features.
-  const double incident_angle =
-      fabs(acos(surface_normal.transpose() * cartesian_mean.normalized()));
   const double surface_angle = atan2(sqrt(1 - surface_normal(2)), surface_normal(2));
 
   // Get Eigenvalue features.
@@ -89,6 +86,10 @@ void FeatureExtractor::getClusterFeatures(const Cluster& cluster, cv::Mat* featu
 
   const double verticality =
       (cartesian_variance(1) + cartesian_variance(0)) / cartesian_variance(2);
+
+  const double neg_mult = cluster.id < 0;
+  const double false_ray_cast =
+      cartesian_variance(1) / cartesian_variance(0) * sin(spherical_mean(1)) * neg_mult;
 
   // Get histogram.
   std::vector<size_t> histogram;
@@ -102,18 +103,15 @@ void FeatureExtractor::getClusterFeatures(const Cluster& cluster, cv::Mat* featu
 
   // Write features to matrix.
   features->at<float>(0,0) = n_points;
-  features->at<float>(0,1) = distances.back() - distances.front(); // max dist diff
-  features->at<float>(0,2) = dist_mean;
-  features->at<float>(0,3) = dist_variance;
-  features->at<float>(0,4) = distances.front(); // min_distance
-  features->at<float>(0,5) = distances.back(); // max_distance
-  features->at<float>(0,6) = distances[distances.size()/2];  // median_distance
-  features->at<float>(0,7) = incident_angle;
-  features->at<float>(0,8) = surface_angle;
-  features->at<float>(0,9) = verticality;
-  size_t cur_mat_index = 10;
+  features->at<float>(0,1) = dist_variance;
+  features->at<float>(0,2) = distances.front(); // min_distance
+  features->at<float>(0,3) = distances.back(); // max_distance
+  features->at<float>(0,4) = distances[distances.size()/2];  // median_distance
+  features->at<float>(0,5) = surface_angle;
+  features->at<float>(0,6) = verticality;
+  features->at<float>(0,7) = false_ray_cast;
+  size_t cur_mat_index = 8;
   cur_mat_index = writeEigenVectorToOpenCvMatrix(cartesian_eigenvalues, features, cur_mat_index);
-  cur_mat_index = writeEigenVectorToOpenCvMatrix(spherical_eigenvalues, features, cur_mat_index);
   cur_mat_index = writeEigenVectorToOpenCvMatrix(cartesian_mean, features, cur_mat_index);
   cur_mat_index = writeEigenVectorToOpenCvMatrix(spherical_mean, features, cur_mat_index);
   cur_mat_index = writeEigenVectorToOpenCvMatrix(cartesian_variance, features, cur_mat_index);
@@ -184,13 +182,4 @@ void FeatureExtractor::getEigenvalueFeatures(Eigen::Vector3d eig,
   std::sort(eig.data(), eig.data() + 3, std::greater<double>());  // Sort descending.
   eig /= eig.sum(); // Normalize.
   eigenvalue_features->push_back((eig(1) - eig(2)) / eig(1)); // linearity
-//  eigenvalue_features->push_back((eig(2) - eig(3)) / eig(1)); // planarity
-  eigenvalue_features->push_back(eig(3) / eig(1));  // scattering
-  eigenvalue_features->push_back(pow(eig.prod(), 1/3)); // omnivariance
-  eigenvalue_features->push_back((eig(1) - eig(3)) / eig(1)); // anisotrophy
-//  eigenvalue_features->push_back(-(eig.array() * eig.array().log()).sum()); // eigenentropy
-  eigenvalue_features->push_back(eig(3)); // change_of_curvature
-
-  // Commented features have shown to be counterproductive in MATLAB.
-  // They're still here in case that changes with OpenCV.
 }

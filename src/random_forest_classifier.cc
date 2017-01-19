@@ -105,13 +105,13 @@ inline double getMinClusterDist(const Cluster& cluster) {
   return min_dist;
 }
 
-inline double getMeanClusterDist(const Cluster& cluster) {
-  double mean = 0;
+inline double getMedianClusterDist(const Cluster& cluster) {
+  std::vector<double> vec;
   for (const ClusterPoint& point: cluster.points) {
-    mean += point.distance;
+    vec.push_back(point.distance);
   }
-  mean /= cluster.points.size();
-  return mean;
+  std::sort(vec.begin(), vec.end());
+  return vec[vec.size()/2];
 }
 
 void printCompROC(const std::vector<Cluster>&clusters,
@@ -124,7 +124,7 @@ void printCompROC(const std::vector<Cluster>&clusters,
   size_t i = 0;
   for (const Cluster& cluster: clusters) {
     file << getMinClusterDist(cluster) << ", "
-         << getMeanClusterDist(cluster) << ", "
+         << getMedianClusterDist(cluster) << ", "
          << getMaxClusterDist(cluster) << ", "
          << labels[i] << ", " << n_points[i] << "\n";
     ++i;

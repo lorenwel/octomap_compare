@@ -33,16 +33,16 @@ min_num_overlap: 3  # number of bounding boxes that need to overlap
 classifier: {
   histogram: {
     min_val: 2, # minimum value of histogram
-    n_bins: 10,   # number of bins
+    n_bins: 6,   # number of bins
     bin_size: 0.8  # size of bins
   },
 
-  probability_threshold: 0.23, # probability threshold above which to mark labels positive
+  probability_threshold: 0.3, # probability threshold above which to mark labels positive
   save_classifier_after_training: false,   # save the classifier to file after training
   roc_filename: "/tmp/roc_values.csv",  # where to save the roc values after testing
 
-  rf_max_depth: 20, # maximum depth of decision tree / opencv default: 5
-  rf_min_sample_ratio: 0.01,  # minimum samples required at a leaf node for it to be split
+  rf_max_depth: 15, # maximum depth of decision tree / opencv default: 5
+  rf_min_sample_ratio: 0.001,  # minimum samples required at a leaf node for it to be split
   rf_priors: [0.75, 0.25],  # prior on class label probability / opencv default: 0
   rf_calc_var_importance: true, # compute variable importance / opencv default: false
   rf_use_surrogates: true,  # use surrogate splits for missing data to compute variable importance correctly / opencv default: false
