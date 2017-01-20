@@ -243,10 +243,8 @@ void OctomapCompare::getChanges(const CompareResult& result,
   Eigen::MatrixXd transpose_appear(output_appear->transpose());
   Eigen::MatrixXd transpose_disappear(output_disappear->transpose());
   // DBSCAN filtering.
-  Dbscan dbscan_appear(transpose_appear, params_.eps, params_.min_pts);
-  Dbscan dbscan_disappear(transpose_disappear, params_.eps, params_.min_pts);
-  dbscan_appear.cluster(cluster_appear);
-  dbscan_disappear.cluster(cluster_disappear);
+  Dbscan::Cluster(transpose_appear, params_.eps, params_.min_pts, cluster_appear);
+  Dbscan::Cluster(transpose_disappear, params_.eps, params_.min_pts, cluster_disappear);
 
 }
 
