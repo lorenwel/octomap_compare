@@ -46,7 +46,7 @@ public:
   RandomForestClassifier(const Params& params);
 
   /// \brief Classify clusters and return dynamic label.
-  void classify(const std::vector<Cluster>& cluster, std::vector<bool>* labels);
+  void classify(std::vector<Cluster>& cluster, std::vector<bool>* labels);
 
   /// \brief Load Random Forest from file.
   void load(const std::string& filename);

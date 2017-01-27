@@ -14,6 +14,7 @@
 struct Change {
   Matrix3xDynamic points;
   Eigen::AlignedBox3d bbox;
+  float score;
 };
 
 template<typename PointType>
@@ -55,6 +56,7 @@ public:
           const Eigen::Vector3d min = temp_change.points.rowwise().minCoeff();
           const Eigen::Vector3d max = temp_change.points.rowwise().maxCoeff();
           temp_change.bbox = Eigen::AlignedBox3d(min, max);
+          temp_change.score = clusters[i].score;
           if (clusters[i].id > 0) appear_changes_.push_back(temp_change);
           else if (clusters[i].id < 0) disappear_changes_.push_back(temp_change);
         }
@@ -76,8 +78,8 @@ public:
         const Eigen::AlignedBox3d intersection = cur_box.intersection(changes[j].bbox);
         if (!intersection.isEmpty()){
           const double intersection_volume = intersection.volume();
-          if (/*intersection_volume / cur_box.volume() > min_ratio_ &&*/
-              intersection_volume / changes[j].bbox.volume() > min_ratio_) {
+          if (intersection_volume / cur_box.volume() > (1-changes[i].score) &&
+              intersection_volume / changes[j].bbox.volume() > (1-changes[j].score)) {
 //            cur_box = intersection;
             ++counter;
             if (counter >= min_pts_) {
@@ -101,7 +103,7 @@ public:
     for (const Change& change: changes) {
       for (const Eigen::AlignedBox3d& bbox: bboxes) {
         if (change.bbox.intersects(bbox)) {
-          if (change.bbox.intersection(bbox).volume() / change.bbox.volume() > min_ratio_) {
+          if (change.bbox.intersection(bbox).volume() / change.bbox.volume() > (1-change.score)) {
             const size_t n_points = change.points.cols();
             for (size_t i = 0; i < n_points; ++i) {
               setXYZFromEigen(change.points.col(i), point);

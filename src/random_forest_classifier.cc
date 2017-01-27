@@ -9,7 +9,7 @@ RandomForestClassifier::RandomForestClassifier(const Params &params) :
   load(params_.classifier_file_name);
 }
 
-void RandomForestClassifier::classify(const std::vector<Cluster>& clusters,
+void RandomForestClassifier::classify(std::vector<Cluster>& clusters,
                                       std::vector<bool>* labels) {
   const size_t n_clusters = clusters.size();
   CHECK_NOTNULL(labels)->assign(n_clusters, false);
@@ -21,6 +21,7 @@ void RandomForestClassifier::classify(const std::vector<Cluster>& clusters,
     feature_extractor_.getClusterFeatures(clusters[i], &features);
     // Classify.
     const double prob = rtrees_.predict_prob(features);
+    clusters[i].score = prob;
     if (prob > params_.probability_threshold) {
       labels->at(i) = true;
       LOG(INFO) << "Cluster with id " << clusters[i].id << " classified dynamic.";

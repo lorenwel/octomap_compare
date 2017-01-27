@@ -66,6 +66,7 @@ struct ClusterPoint {
 
 struct Cluster {
   int id;
+  float score;
   std::vector<ClusterPoint> points;
 
   Cluster(const int& id_) : id(id_) {}
