@@ -158,7 +158,8 @@ public:
   void getChangeCandidates(pcl::PointCloud<pcl::PointXYZRGB>* cloud);
 
   /// \brief Get a point cloud visualizing the comparison result.
-  void getDistanceHeatMap(pcl::PointCloud<pcl::PointXYZRGB>* distance_point_cloud);
+  void getDistanceHeatMap(pcl::PointCloud<pcl::PointXYZRGB>* distance_point_cloud,
+                          pcl::PointCloud<pcl::PointXYZRGB>* threshold_point_cloud);
 
   /// \brief Get the clusters after doing compare.
   void getClusters(std::vector<Cluster>* clusters);

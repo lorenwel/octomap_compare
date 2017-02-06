@@ -77,7 +77,7 @@ OctomapCompare::CompareParams getCompareParams(ros::NodeHandle& nh) {
   int min_num_overlap;
   nh.param("min_num_overlap", min_num_overlap, min_num_overlap);
   params.min_num_overlap = min_num_overlap;
-//  nh.getParam("/laser_mapper/icp_configuration_file", params.icp_configuration_file);
+  nh.getParam("/laser_mapper/icp_configuration_file", params.icp_configuration_file);
 //  nh.getParam("/laser_mapper/icp_input_filters_file", params.icp_input_filters_file);
 //  nh.getParam("/laser_mapper/icp_input_filters_file", params.icp_base_filters_file);
   std::vector<double> temp_transform({1, 0, 0, 0, 1, 0, 0, 0, 1});

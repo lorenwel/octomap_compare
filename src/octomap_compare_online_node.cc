@@ -3,6 +3,7 @@
 #include <Eigen/Dense>
 #include <eigen_conversions/eigen_msg.h>
 #include <ros/ros.h>
+#include <pcl/common/transforms.h>
 #include <pcl_ros/point_cloud.h>
 #include <pcl_ros/transforms.h>
 #include <pointmatcher_ros/point_cloud.h>
@@ -25,6 +26,8 @@ class Online {
   ros::Publisher changes_pub_;
   ros::Publisher heat_map_pub_;
   ros::Publisher change_map_pub_;
+  ros::Publisher threshold_pub_;
+  ros::Publisher obstacle_re_pub_;
   tf::TransformListener tf_listener_;
 
   OctomapCompare octomap_compare_;
@@ -95,7 +98,14 @@ class Online {
         change_map_timer.stop();
 
         pcl::PointCloud<pcl::PointXYZRGB> heat_map_point_cloud;
-        octomap_compare_.getDistanceHeatMap(&heat_map_point_cloud);
+        pcl::PointCloud<pcl::PointXYZRGB> heat_map_thresholded_point_cloud;
+        octomap_compare_.getDistanceHeatMap(&heat_map_point_cloud, &heat_map_thresholded_point_cloud);
+
+        pcl::PointCloud<pcl::PointXYZI> obstacle_re;
+        pcl::fromROSMsg(cloud, obstacle_re);
+        pcl::transformPointCloud(obstacle_re, obstacle_re, T_initial);
+        obstacle_re.header.frame_id = "map";
+        obstacle_re.header.stamp = 0u;
 
         heat_map_pub_.publish(heat_map_point_cloud);
         change_candidates_pub_.publish(change_candidate_point_cloud);
@@ -104,8 +114,8 @@ class Online {
         change_map_pub_.publish(change_map_.getCloud());
         change_map_timer.stop();
 
-        // Correct relocalization transform with ICP transform change.
-        relocalization_transform_ = T_initial * T_map_robot.inverse();
+        threshold_pub_.publish(heat_map_thresholded_point_cloud);
+        obstacle_re_pub_.publish(obstacle_re);
 
         // This part is for labeling data. Stops the pipeline until there's user interaction.
         // BE VERY WARY OF UNCOMMENTING THIS!
@@ -113,6 +123,9 @@ class Online {
 //        ClusterCentroidVector cluster_centroids;
 //        octomap_compare_.saveClusterResultToFile(filename, &cluster_centroids);
 //        FileWriter(nh_, cluster_centroids, filename, cloud.header.stamp);
+
+        // Correct relocalization transform with ICP transform change.
+        relocalization_transform_ = T_initial * T_map_robot.inverse();
 
         pipeline_timer.stop();
       }
@@ -150,6 +163,8 @@ public:
     changes_pub_ = nh_.advertise<pcl::PointCloud<pcl::PointXYZRGB> >("changes", 1, true);
     heat_map_pub_ = nh_.advertise<pcl::PointCloud<pcl::PointXYZRGB> >("heat_map", 1, true);
     change_map_pub_ = nh_.advertise<pcl::PointCloud<pcl::PointXYZRGB> >("change_map", 1, true);
+    threshold_pub_ = nh_.advertise<pcl::PointCloud<pcl::PointXYZRGB> >("threshold", 1, true);
+    obstacle_re_pub_ = nh_.advertise<pcl::PointCloud<pcl::PointXYZI> >("obstacle_re", 1, true);
 
     relocalization_transform_ = Eigen::Affine3d::Identity();
     bool use_relocalization = false;

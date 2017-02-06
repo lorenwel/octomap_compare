@@ -216,9 +216,9 @@ void OctomapCompare::getTransformFromICP(const ContainerBase& compare_container,
   // Get initial transform.
   std::cout << "Initial transform is\n" << *T_initial << "\n";
   Matrix3xDynamic filtered;
-//  cylindricalFilter(base_octree_.Points(), T_initial, 25, &filtered);
-//  PM::DataPoints base_points = matrix3dEigenToPointMatcher(filtered);
-  PM::DataPoints base_points = matrix3dEigenToPointMatcher(base_octree_.Points());
+  cylindricalFilter(base_octree_.Points(), *T_initial, 25, &filtered);
+  PM::DataPoints base_points = matrix3dEigenToPointMatcher(filtered);
+//  PM::DataPoints base_points = matrix3dEigenToPointMatcher(base_octree_.Points());
   PM::DataPoints comp_points = matrix3dEigenToPointMatcher(compare_container.Points());
 //  base_filters_.apply(base_points);
 //  input_filters_.apply(comp_points);
@@ -508,9 +508,12 @@ void OctomapCompare::getChangeCandidates(pcl::PointCloud<pcl::PointXYZRGB>* clou
   std::cout << cloud->size() << " points left after clustering\n";
 }
 
-void OctomapCompare::getDistanceHeatMap(pcl::PointCloud<pcl::PointXYZRGB>* distance_point_cloud) {
+void OctomapCompare::getDistanceHeatMap(pcl::PointCloud<pcl::PointXYZRGB>* distance_point_cloud,
+                                        pcl::PointCloud<pcl::PointXYZRGB>* threshold_point_cloud) {
   CHECK_NOTNULL(distance_point_cloud)->clear();
+  CHECK_NOTNULL(threshold_point_cloud)->clear();
   distance_point_cloud->header.frame_id = "map";
+  threshold_point_cloud->header.frame_id = "map";
   double max_dist;
   if (base_max_dist_ > comp_max_dist_) max_dist = base_max_dist_;
   else max_dist = comp_max_dist_;
@@ -522,12 +525,14 @@ void OctomapCompare::getDistanceHeatMap(pcl::PointCloud<pcl::PointXYZRGB>* dista
     applyColorToPoint(color, pointrgb);
     setXYZFromEigen(base_octree_.Points().col(ind_dist.first), pointrgb);
     distance_point_cloud->push_back(pointrgb);
+    if (ind_dist.second > params_.distance_threshold) threshold_point_cloud->push_back(pointrgb);
   }
   for (const auto& ind_dist : comp_index_to_distances_) {
     color = getColorFromDistance(ind_dist.second, max_dist);
     applyColorToPoint(color, pointrgb);
     setXYZFromEigen(compare_container_->TransformedPoints().col(ind_dist.first), pointrgb);
     distance_point_cloud->push_back(pointrgb);
+    if (ind_dist.second > params_.distance_threshold) threshold_point_cloud->push_back(pointrgb);
   }
   if (params_.show_unobserved_voxels) {
     for (const auto& index : base_unobserved_points_) {
