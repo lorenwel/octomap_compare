@@ -85,6 +85,19 @@ static void setXYZFromEigen(const Eigen::Vector3d& eigen, PointType& point) {
   point.z = eigen(2);
 }
 
+inline Eigen::Matrix3d getMahalanobisTransform(const Eigen::Matrix3d& covariance) {
+  Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> solver(covariance.inverse());
+  CHECK_EQ(solver.info(), Eigen::Success) << "Covariance matrix decomposition failed.";
+
+  const Eigen::Matrix3d eig_val = solver.eigenvalues().asDiagonal();
+  CHECK_GE(eig_val(0,0), 0) << "Negative covariance matrix eigenvalue.";
+  CHECK_GE(eig_val(1,1), 0) << "Negative covariance matrix eigenvalue.";
+  CHECK_GE(eig_val(2,2), 0) << "Negative covariance matrix eigenvalue.";
+
+  const Eigen::Matrix3d std_dev = eig_val.array().sqrt();
+  return std_dev * solver.eigenvectors().transpose();
+}
+
 static void clusterToPointCloud(const Cluster& cluster,
                                 pcl::PointCloud<pcl::PointXYZRGB>* cloud,
                                 const Eigen::Affine3d& transform = Eigen::Affine3d::Identity()) {

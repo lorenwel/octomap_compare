@@ -73,7 +73,6 @@ OctomapCompare::CompareParams getCompareParams(ros::NodeHandle& nh) {
   nh.param("perform_icp", params.perform_icp, params.perform_icp);
   nh.param("clustering_algorithm", params.clustering_algorithm, params.clustering_algorithm);
   nh.param("clustering_space", params.clustering_space, params.clustering_space);
-  nh.param("min_overlap_ratio", params.min_overlap_ratio, params.min_overlap_ratio);
   int min_num_overlap;
   nh.param("min_num_overlap", min_num_overlap, min_num_overlap);
   params.min_num_overlap = min_num_overlap;
@@ -83,12 +82,13 @@ OctomapCompare::CompareParams getCompareParams(ros::NodeHandle& nh) {
   std::vector<double> temp_transform({1, 0, 0, 0, 1, 0, 0, 0, 1});
   nh.param("spherical_transform", temp_transform, temp_transform);
   params.spherical_transform = Eigen::Matrix<double, 3, 3, Eigen::RowMajor>(temp_transform.data());
-  std::vector<double> std_dev_vec;
-  if (!nh.getParam("std_dev", std_dev_vec)) {
-    LOG(FATAL) << "No standard deviation specified";
+  std::vector<double> cov_vec;
+  if (!nh.getParam("covariance", cov_vec)) {
+    LOG(FATAL) << "No covariance specified";
   }
   else {
-    params.std_dev = Eigen::Matrix<double, 3, 3, Eigen::RowMajor>(std_dev_vec.data());
+    params.covariance = Eigen::Matrix<double, 3, 3, Eigen::RowMajor>(cov_vec.data());
+    params.mahalanobis_transform = getMahalanobisTransform(params.covariance);
   }
 
   return params;

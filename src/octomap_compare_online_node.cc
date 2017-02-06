@@ -66,7 +66,9 @@ class Online {
         Matrix3xDynamic points = pointMatcherToMatrix3dEigen(intermediate_points);
         init_timer.stop();
 
-        PointCloudContainer compare_container(points, params_.spherical_transform, params_.std_dev);
+        PointCloudContainer compare_container(points,
+                                              params_.spherical_transform,
+                                              params_.mahalanobis_transform);
 
         octomap_compare_.compare(compare_container, &T_initial.matrix());
 
@@ -155,7 +157,7 @@ public:
          const OctomapCompare::CompareParams& params) :
          nh_(nh), octomap_compare_(base_file, params), params_(params),
          classifier_(getRandomForestParams(nh_)),
-         change_map_(params.min_overlap_ratio, params.min_num_overlap),
+         change_map_(params.min_num_overlap),
          n_printed_(0) {
     cloud_sub_ = nh_.subscribe(cloud_topic, 1, &Online::cloudCallback, this);
     change_candidates_pub_ =

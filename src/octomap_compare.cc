@@ -66,6 +66,45 @@ void OctomapCompare::Reset() {
   comp_max_dist_ = 0;
 }
 
+// This is different from the algorithm in the master thesis because we already have mahalanobis
+// transformed points. We can just mahalanobis transform p_corre and will get the same result.
+double OctomapCompare::computeCorrectedDist(const Eigen::Vector3d& point,
+                                            const Eigen::Vector3d& neighbor) {
+  const Eigen::Vector3d p_diff = point - neighbor;
+  const double d_octo = base_octree_->getResolution()/2;
+  const Eigen::Vector3d p_corr =
+      params_.mahalanobis_transform * Eigen::Vector3d(d_octo/point(2), d_octo/point(2), d_octo);
+  const double p_diff_norm2 = p_diff.squaredNorm();
+  const double scale = p_diff.cwiseAbs().cwiseProduct(p_corr).sum() / p_diff_norm2;
+  const Eigen::Vector3d p_dist = p_diff*(1 - scale);
+  return p_dist.norm();
+}
+
+double OctomapCompare::getCompareDist(const Eigen::Vector3d point,
+                                      const Eigen::VectorXi &neighbor_indices,
+                                      const Matrix3xDynamic& neighbor_source,
+                                      const std::string &dist_metric) {
+  const size_t n_neighbors = neighbor_indices.size();
+  if (dist_metric == "max") {
+    return computeCorrectedDist(point, neighbor_source.col(neighbor_indices(n_neighbors - 1)));
+  }
+  else if (dist_metric == "mean") {
+    double dist = 0;
+    for (size_t i = 0; i < n_neighbors; ++i) {
+      dist += computeCorrectedDist(point, neighbor_source.col(neighbor_indices[i]));
+    }
+    dist /= n_neighbors;
+    return dist;
+  }
+  else if (dist_metric == "min") {
+    return computeCorrectedDist(point, neighbor_source.col(neighbor_indices(0)));
+  }
+  else {
+    LOG(FATAL) << "Invalid distances metric \"" << dist_metric << "\".\n";
+    return -1;
+  }
+}
+
 void OctomapCompare::compare(PointCloudContainer &compare_container,
                              Eigen::Matrix<double, 4, 4>* T_initial) {
   compare_container_ = &compare_container;
@@ -121,12 +160,12 @@ double OctomapCompare::compareForward(PointCloudContainer& compare_container) {
       }
       else {
         const SphericalVector spherical_scaled = compare_container.SphericalPointsScaled().col(i);
-        const SphericalVector spherical = compare_container.SphericalPoints().col(i);
         OctomapContainer::KNNResult knn_result =
             base_octree_.findKNN(spherical_scaled, params_.k_nearest_neighbor);
-        const double cur_dist = getCompareDist(knn_result.distances2,
-                                               params_.distance_computation,
-                                               getDistanceCorrection(spherical));
+        const double cur_dist = getCompareDist(spherical_scaled,
+                                               knn_result.indices,
+                                               base_octree_.SphericalPointsScaled(),
+                                               params_.distance_computation);
         comp_index_to_distances_[i] = cur_dist;
         if (cur_dist > max_dist) max_dist = cur_dist;
       }
@@ -148,7 +187,7 @@ double OctomapCompare::compareBackward(
   SphericalPoint spherical_point_scaled;
   // Compare base octree to comp octree.
   const unsigned int n_points = base_octree_.Points().cols();
-  double dist_correction;
+  const double octomap_resolution = base_octree_->getResolution()/2;
   size_t n_obs_points = 0;
   for (unsigned int i = 0; i < n_points; ++i) {
     const Eigen::Vector3d map_point(base_octree_.Points().col(i));
@@ -160,13 +199,13 @@ double OctomapCompare::compareBackward(
       base_spherical_scaled.push_back(spherical_point_scaled);
       base_spherical.push_back(spherical_point);
       base_ind_conv_[i] = n_obs_points++;
-      dist_correction = getDistanceCorrection(spherical_point);
-      if (compare_container.isObserved(spherical_point, dist_correction)) {
+      if (compare_container.isObserved(spherical_point, octomap_resolution)) {
         OctomapContainer::KNNResult knn_result =
             compare_container.findKNN(spherical_point_scaled, params_.k_nearest_neighbor);
-        const double cur_dist = getCompareDist(knn_result.distances2,
-                                               params_.distance_computation,
-                                               dist_correction);
+        const double cur_dist = getCompareDist(spherical_point_scaled,
+                                               knn_result.indices,
+                                               compare_container.SphericalPointsScaled(),
+                                               params_.distance_computation);
         base_index_to_distances_[i] = cur_dist;
         if (cur_dist > max_dist) max_dist = cur_dist;
       }

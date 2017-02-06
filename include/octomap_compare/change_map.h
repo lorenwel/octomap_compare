@@ -24,19 +24,13 @@ class ChangeMap {
   typedef typename CloudType::Ptr CloudTypePtr;
   typedef typename CloudType::ConstPtr CloudTypeConstPtr;
 
-  const double min_ratio_;
-
   const unsigned int min_pts_;
 
   std::vector<Change> appear_changes_;
   std::vector<Change> disappear_changes_;
 
 public:
-  ChangeMap(const double& resolution, const unsigned int& min_pts) :
-            min_ratio_(resolution),
-            min_pts_(min_pts) {
-
-  }
+  ChangeMap(const unsigned int& min_pts) : min_pts_(min_pts) { }
 
   void addPointCloud(const std::vector<Cluster>& clusters,
                      const std::vector<bool>& labels,

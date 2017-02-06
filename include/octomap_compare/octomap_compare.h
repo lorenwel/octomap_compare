@@ -58,8 +58,10 @@ public:
     bool show_outliers;
     // Perform ICP or not.
     bool perform_icp;
-    // Standard deviation of laser.
-    Eigen::Matrix3d std_dev;
+    // Covariance of laser.
+    Eigen::Matrix3d covariance;
+    // Transform for spherical points to Mahalanobis space.
+    Eigen::Matrix3d mahalanobis_transform;
     // Transform from sensor frame to spherical coordinate frame.
     Eigen::Matrix3d spherical_transform;
     // File for ICP configuration.
@@ -68,7 +70,6 @@ public:
     std::string icp_input_filters_file;
     std::string icp_base_filters_file;
     // Filter parameters.
-    double min_overlap_ratio;
     unsigned int min_num_overlap;
   };
 
@@ -131,11 +132,13 @@ private:
                           std::list<size_t>* comp_indices,
                           std::list<size_t>* base_indices);
 
-  /// \brief Returns number of angular std deviations an octomap voxel occupies at certain distance.
-  ///        Is only a sensible correction if std_dev of theta == std_dev of phi.
-  inline double getDistanceCorrection(const SphericalPoint& point) {
-    return base_octree_->getResolution() / point.r / params_.std_dev(0,0) / 2;
-  }
+  double computeCorrectedDist(const Eigen::Vector3d& point,
+                              const Eigen::Vector3d& neighbor);
+
+  double getCompareDist(const Eigen::Vector3d point,
+                        const Eigen::VectorXi &indices,
+                        const Matrix3xDynamic& points,
+                        const std::string &dist_metric);
 
 public:
   /// \brief Constructor which reads octomaps from specified files.
