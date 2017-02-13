@@ -22,16 +22,23 @@ public:
 
   struct CompareParams {
     CompareParams() :
-      max_vis_dist(8),
-      distance_threshold(0.1),
+      max_vis_dist(4),
+      distance_threshold(2),
       eps(0.3),
       min_pts(10),
-      k_nearest_neighbor(1),
-      show_unobserved_voxels(true), 
+      k_nearest_neighbor(2),
+      show_unobserved_voxels(false),
       distance_computation("max"), 
-      color_changes(true), 
+      clustering_algorithm("hdbscan"),
+      clustering_space("cartesian"),
+      color_changes(false),
       show_outliers(true),
-      perform_icp(true) {}
+      perform_icp(true),
+      covariance(Eigen::Matrix3d::Identity()),
+      mahalanobis_transform(Eigen::Matrix3d::Identity()),
+      spherical_transform(Eigen::Matrix3d::Identity()),
+      min_num_overlap(2),
+      label_data(false) {}
 
     // Distance value used as maximum for voxel coloring in visualization.
     double max_vis_dist;
@@ -71,6 +78,8 @@ public:
     std::string icp_base_filters_file;
     // Filter parameters.
     unsigned int min_num_overlap;
+    // Enable data labelling.
+    bool label_data;
   };
 
 private:

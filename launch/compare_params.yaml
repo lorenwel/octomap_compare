@@ -28,6 +28,8 @@ spherical_transform: [0, 1, 0,
 use_relocalization: true  # wait for relocalization transform before starting to compare
 # change map filter parameter
 min_num_overlap: 2  # number of bounding boxes that need to overlap
+# data labelling
+label_data: false # enable data labelling through rviz. CAUTION: this pauses the pipeline until ROS time is paused and resumed.
 
 classifier: {
   histogram: {

@@ -119,12 +119,12 @@ class Online {
         threshold_pub_.publish(heat_map_thresholded_point_cloud);
         obstacle_re_pub_.publish(obstacle_re);
 
-        // This part is for labeling data. Stops the pipeline until there's user interaction.
-        // BE VERY WARY OF UNCOMMENTING THIS!
-//        const std::string filename("/tmp/compare_output_" + std::to_string(n_printed_++) + ".csv");
-//        ClusterCentroidVector cluster_centroids;
-//        octomap_compare_.saveClusterResultToFile(filename, &cluster_centroids);
-//        FileWriter(nh_, cluster_centroids, filename, cloud.header.stamp);
+        if (params_.label_data) {
+          const std::string filename("/tmp/compare_output_" + std::to_string(n_printed_++) + ".csv");
+          ClusterCentroidVector cluster_centroids;
+          octomap_compare_.saveClusterResultToFile(filename, &cluster_centroids);
+          FileWriter(nh_, cluster_centroids, filename, cloud.header.stamp);
+        }
 
         // Correct relocalization transform with ICP transform change.
         relocalization_transform_ = T_initial * T_map_robot.inverse();
