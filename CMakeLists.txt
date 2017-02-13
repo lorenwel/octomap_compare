@@ -16,11 +16,19 @@ cs_add_library(${PROJECT_NAME}
                src/file_writer.cc)
 target_link_libraries(${PROJECT_NAME} ${OpenCV_LIBS})
 
+find_package(Boost REQUIRED COMPONENTS python)
+find_package(PythonLibs REQUIRED)
+
+cs_add_library(hdbscan src/hdbscan.cc)
+
+include_directories(include ${Boost_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS})
+target_link_libraries(hdbscan ${Boost_LIBRARIES} ${PYTHON_LIBRARIES})
+
 cs_add_executable(octomap_compare_online_node src/octomap_compare_online_node.cc)
-target_link_libraries(octomap_compare_online_node ${PROJECT_NAME})
+target_link_libraries(octomap_compare_online_node ${PROJECT_NAME} hdbscan)
 
 cs_add_executable(train_node src/train_node.cc)
-target_link_libraries(train_node ${PROJECT_NAME})
+target_link_libraries(train_node ${PROJECT_NAME} hdbscan)
 
 #add_doxygen(NOT_AUTOMATIC)
 

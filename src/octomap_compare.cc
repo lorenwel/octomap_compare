@@ -6,7 +6,7 @@
 #include <thread>
 
 #include <dbscan/dbscan.h>
-#include <hdbscan.h>
+#include <hdbscan/hdbscan.h>
 #include <pcl/conversions.h>
 
 OctomapCompare::OctomapCompare(const std::string& base_file,
