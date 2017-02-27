@@ -478,7 +478,7 @@ void OctomapCompare::saveClusterResultToFile(const std::string& filename,
 
 void OctomapCompare::getChangeCandidates(pcl::PointCloud<pcl::PointXYZRGB>* cloud) {
   CHECK_NOTNULL(cloud)->clear();
-  cloud->header.frame_id = "map";
+  cloud->header.frame_id = params_.map_publish_frame;
   std::srand(0);
   std::unordered_map<int, pcl::RGB> color_map_appear;
   std::unordered_map<int, pcl::RGB> color_map_disappear;
@@ -551,8 +551,8 @@ void OctomapCompare::getDistanceHeatMap(pcl::PointCloud<pcl::PointXYZRGB>* dista
                                         pcl::PointCloud<pcl::PointXYZRGB>* threshold_point_cloud) {
   CHECK_NOTNULL(distance_point_cloud)->clear();
   CHECK_NOTNULL(threshold_point_cloud)->clear();
-  distance_point_cloud->header.frame_id = "map";
-  threshold_point_cloud->header.frame_id = "map";
+  distance_point_cloud->header.frame_id = params_.map_publish_frame;
+  threshold_point_cloud->header.frame_id = params_.map_publish_frame;
   double max_dist;
   if (base_max_dist_ > comp_max_dist_) max_dist = base_max_dist_;
   else max_dist = comp_max_dist_;

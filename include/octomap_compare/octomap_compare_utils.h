@@ -342,9 +342,10 @@ static Matrix3xDynamic pointMatcherToMatrix3dEigen(const PM::DataPoints& points)
 }
 
 static void matrixToPointCloud(const Matrix3xDynamic matrix,
+                               const std::string& header_frame,
                         pcl::PointCloud<pcl::PointXYZ>* cloud) {
   CHECK_NOTNULL(cloud)->clear();
-  cloud->header.frame_id = "map";
+  cloud->header.frame_id = header_frame;
   for (unsigned int i = 0; i < matrix.cols(); ++i) {
     pcl::PointXYZ point(matrix(0,i), matrix(1,i), matrix(2,i));
     cloud->push_back(point);

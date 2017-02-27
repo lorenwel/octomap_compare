@@ -38,7 +38,9 @@ public:
       mahalanobis_transform(Eigen::Matrix3d::Identity()),
       spherical_transform(Eigen::Matrix3d::Identity()),
       min_num_overlap(2),
-      label_data(false) {}
+      label_data(false),
+      map_listen_frame("map"),
+      map_publish_frame("map") {}
 
     // Distance value used as maximum for voxel coloring in visualization.
     double max_vis_dist;
@@ -80,6 +82,11 @@ public:
     unsigned int min_num_overlap;
     // Enable data labelling.
     bool label_data;
+    // Frame of incoming messages.
+    std::string map_listen_frame;
+    // Frame for outgoing messages.
+    std::string map_publish_frame;
+
   };
 
 private:

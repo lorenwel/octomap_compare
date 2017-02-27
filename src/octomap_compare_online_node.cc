@@ -28,6 +28,7 @@ class Online {
   ros::Publisher change_map_pub_;
   ros::Publisher threshold_pub_;
   ros::Publisher obstacle_re_pub_;
+  ros::Publisher initital_transform_pub_;
   tf::TransformListener tf_listener_;
 
   OctomapCompare octomap_compare_;
@@ -36,6 +37,7 @@ class Online {
   RandomForestClassifier classifier_;
 
   Eigen::Affine3d relocalization_transform_;
+  geometry_msgs::Transform relocalization_msg;
 
   ChangeMap<pcl::PointXYZRGB> change_map_;
 
@@ -53,7 +55,7 @@ class Online {
       try {
         PipelineTimer pipeline_timer("pipeline");
         Timer init_timer("init");
-        tf_listener_.lookupTransform("map",
+        tf_listener_.lookupTransform(params_.map_listen_frame,
                                      cloud.header.frame_id,
                                      cloud.header.stamp,
                                      T_temp);
@@ -87,7 +89,7 @@ class Online {
 
         // Publish changes. TODO: Make this a function'n'stuff.
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr changes_point_cloud(new pcl::PointCloud<pcl::PointXYZRGB>());
-        changes_point_cloud->header.frame_id = "map";
+        changes_point_cloud->header.frame_id = params_.map_publish_frame;
         pcl::PointCloud<pcl::PointXYZRGB> temp_cloud;
         for (size_t i = 0; i < clusters.size(); ++i) {
           if (labels[i]) {
@@ -106,14 +108,14 @@ class Online {
         pcl::PointCloud<pcl::PointXYZI> obstacle_re;
         pcl::fromROSMsg(cloud, obstacle_re);
         pcl::transformPointCloud(obstacle_re, obstacle_re, T_initial);
-        obstacle_re.header.frame_id = "map";
+        obstacle_re.header.frame_id = params_.map_publish_frame;
         obstacle_re.header.stamp = 0u;
 
         heat_map_pub_.publish(heat_map_point_cloud);
         change_candidates_pub_.publish(change_candidate_point_cloud);
         changes_pub_.publish(changes_point_cloud);
         change_map_timer.start();
-        change_map_pub_.publish(change_map_.getCloud());
+        change_map_pub_.publish(change_map_.getCloud(params_.map_publish_frame));
         change_map_timer.stop();
 
         threshold_pub_.publish(heat_map_thresholded_point_cloud);
@@ -128,6 +130,10 @@ class Online {
 
         // Correct relocalization transform with ICP transform change.
         relocalization_transform_ = T_initial * T_map_robot.inverse();
+
+        // Publish corrected relocalization transform.
+        tf::transformEigenToMsg(relocalization_transform_, relocalization_msg);
+        initital_transform_pub_.publish(relocalization_msg);
 
         pipeline_timer.stop();
       }
@@ -167,6 +173,7 @@ public:
     change_map_pub_ = nh_.advertise<pcl::PointCloud<pcl::PointXYZRGB> >("change_map", 1, true);
     threshold_pub_ = nh_.advertise<pcl::PointCloud<pcl::PointXYZRGB> >("threshold", 1, true);
     obstacle_re_pub_ = nh_.advertise<pcl::PointCloud<pcl::PointXYZI> >("obstacle_re", 1, true);
+    initital_transform_pub_ = nh_.advertise<geometry_msgs::Transform>("corrected_initial_transform", 1, true);
 
     relocalization_transform_ = Eigen::Affine3d::Identity();
     bool use_relocalization = false;
