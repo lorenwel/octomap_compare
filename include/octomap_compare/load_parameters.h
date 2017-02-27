@@ -74,6 +74,8 @@ OctomapCompare::CompareParams getCompareParams(ros::NodeHandle& nh) {
   nh.param("clustering_algorithm", params.clustering_algorithm, params.clustering_algorithm);
   nh.param("clustering_space", params.clustering_space, params.clustering_space);
   nh.param("label_data", params.label_data, params.label_data);
+  nh.param("map_listen_frame", params.map_listen_frame, params.map_listen_frame);
+  nh.param("map_publish_frame", params.map_publish_frame, params.map_publish_frame);
   int min_num_overlap;
   nh.param("min_num_overlap", min_num_overlap, min_num_overlap);
   params.min_num_overlap = min_num_overlap;

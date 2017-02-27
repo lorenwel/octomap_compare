@@ -110,7 +110,7 @@ public:
     }
   }
 
-  CloudTypeConstPtr getCloud() {
+  CloudTypeConstPtr getCloud(const std::string& header_frame) {
     CloudTypePtr out_cloud(new CloudType());
     CloudTypePtr temp_cloud(new CloudType());
 
@@ -130,7 +130,7 @@ public:
     sor_filter.setStddevMulThresh(2.0);
     sor_filter.filter(*out_cloud);
 
-    out_cloud->header.frame_id = "map";
+    out_cloud->header.frame_id = header_frame;
     return out_cloud;
   }
 };

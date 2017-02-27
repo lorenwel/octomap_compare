@@ -4,6 +4,9 @@ initial_transform: [1, 0, 0, 0,
                     0, 1, 0, 0,
                     0, 0, 1, 0,
                     0, 0, 0, 1] # use this initial transform for offline comparison
+# frames parameters:
+map_listen_frame: "map"
+map_publish_frame: "map"
 # dynamics candidate parameter
 distance_threshold: 2 # distance threshold for a point to be considered change candidate
 k_nearest_neighbor: 2 # number of neighbors to use for distance computation
