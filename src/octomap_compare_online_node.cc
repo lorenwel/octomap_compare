@@ -4,6 +4,7 @@
 #include <eigen_conversions/eigen_msg.h>
 #include <ros/ros.h>
 #include <pcl/common/transforms.h>
+#include <pcl/io/ply_io.h>
 #include <pcl_ros/point_cloud.h>
 #include <pcl_ros/transforms.h>
 #include <pointmatcher_ros/point_cloud.h>
@@ -16,6 +17,7 @@
 #include "octomap_compare/load_parameters.h"
 #include "octomap_compare/octomap_compare.h"
 #include "octomap_compare/octomap_compare_utils.h"
+#include "octomap_compare/SaveChangeMap.h"
 
 class Online {
 
@@ -30,6 +32,8 @@ class Online {
   ros::Publisher obstacle_re_pub_;
   ros::Publisher initital_transform_pub_;
   tf::TransformListener tf_listener_;
+
+  ros::ServiceServer save_change_map_;
 
   OctomapCompare octomap_compare_;
   OctomapCompare::CompareParams params_;
@@ -155,6 +159,14 @@ class Online {
     }
   }
 
+  bool saveChangeMapServiceCall(octomap_compare::SaveChangeMap::Request& request,
+                                octomap_compare::SaveChangeMap::Response& response) {
+      pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr change_cloud =
+          change_map_.getCloud(params_.map_listen_frame);
+      pcl::io::savePLYFileASCII(request.filename, *change_cloud);
+    return true;
+  }
+
 public:
 
   Online(const ros::NodeHandle& nh,
@@ -174,6 +186,8 @@ public:
     threshold_pub_ = nh_.advertise<pcl::PointCloud<pcl::PointXYZRGB> >("threshold", 1, true);
     obstacle_re_pub_ = nh_.advertise<pcl::PointCloud<pcl::PointXYZI> >("obstacle_re", 1, true);
     initital_transform_pub_ = nh_.advertise<geometry_msgs::Transform>("corrected_initial_transform", 1, true);
+
+    save_change_map_ = nh_.advertiseService("save_change_map", &Online::saveChangeMapServiceCall, this);
 
     relocalization_transform_ = Eigen::Affine3d::Identity();
     bool use_relocalization = false;

@@ -40,7 +40,8 @@ public:
       min_num_overlap(2),
       label_data(false),
       map_listen_frame("map"),
-      map_publish_frame("map") {}
+      map_publish_frame("map"),
+      d_cylindrical_filter_m(25) {}
 
     // Distance value used as maximum for voxel coloring in visualization.
     double max_vis_dist;
@@ -86,6 +87,8 @@ public:
     std::string map_listen_frame;
     // Frame for outgoing messages.
     std::string map_publish_frame;
+    // Diameter of cylindrical filter.
+    double d_cylindrical_filter_m;
 
   };
 

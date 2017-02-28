@@ -17,6 +17,8 @@
   <depend>glog_catkin</depend>
   <depend>libnabo</depend>
   <depend>libpointmatcher_ros</depend>
+  <depend>message_generation</depend>
+  <depend>message_runtime</depend>
   <depend>numpy_eigen</depend>
   <depend>octomap_ros</depend>
   <depend>roscpp</depend>  

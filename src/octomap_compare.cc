@@ -255,7 +255,7 @@ void OctomapCompare::getTransformFromICP(const ContainerBase& compare_container,
   // Get initial transform.
   std::cout << "Initial transform is\n" << *T_initial << "\n";
   Matrix3xDynamic filtered;
-  cylindricalFilter(base_octree_.Points(), *T_initial, 25, &filtered);
+  cylindricalFilter(base_octree_.Points(), *T_initial, params_.d_cylindrical_filter_m, &filtered);
   PM::DataPoints base_points = matrix3dEigenToPointMatcher(filtered);
 //  PM::DataPoints base_points = matrix3dEigenToPointMatcher(base_octree_.Points());
   PM::DataPoints comp_points = matrix3dEigenToPointMatcher(compare_container.Points());
