@@ -1,7 +1,10 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(octomap_compare)
 
-find_package(catkin_simple 0.1.0 REQUIRED )
+find_package(catkin_simple 0.1.0 REQUIRED COMPONENTS
+             message_generation
+             roscpp)
+             
 find_package(OpenCV 2 REQUIRED)
 
 catkin_simple(ALL_DEPS_REQUIRED)
