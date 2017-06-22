@@ -14,6 +14,7 @@
 #include <pcl/point_types.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <pointmatcher/PointMatcher.h>
+#include <nabo/nabo.h>
 #include <ros/ros.h>
 
 #include <sm/timing/Timer.hpp>
